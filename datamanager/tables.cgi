@@ -1,12 +1,14 @@
 #!/usr/local/bin/perl
 
+# $Id: tables.cgi,v 1.2 2003/07/17 14:02:38 kiesling Exp $
+
 use UnixODBC (':all');
 use UnixODBC::BridgeServer;
 use RPC::PlClient;
 
 my $loginfile = '/usr/local/etc/odbclogins'; # File that contains login data.
 my %peers; # Peer host login data from /usr/local/etc/odbclogins
-&readlogins;
+readlogins ();
 
 my $dsnquery;
 $dsnquery = $ENV{'REQUEST_URI'};
@@ -539,7 +541,7 @@ sub fieldform {
     print qq|</td>\n|;
     print qq|</tr>\n|;
     print qq|</colgroup>\n|;
-    &table_end;
+    table_end ();
     print qq|</form>|;
 }
 

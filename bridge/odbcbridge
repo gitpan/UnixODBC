@@ -1,14 +1,33 @@
-#! /usr/local/bin/perl -w
+#! /usr/bin/perl -w
+
+# $Id: odbcbridge,v 1.3 2003/07/20 21:24:32 kiesling Exp $
 
 use UnixODBC qw(:all);
 use UnixODBC::BridgeServer;
+use Getopt::Long;
+
+my $help = '';  # Print help text and exit.
+my $pidfile = '/usr/local/var/odbcbridge/odbcbridge.pid';
+
+my $helptext =<<EOHELP;
+Usage: odbcbridge
+Options: 
+--help     Print this message and exit.
+For help configuring odbcbridge, type "man odbcbridge."
+EOHELP
+
+GetOptions ('help' => \$help);
+
+if ($help) {
+    print $helptext;
+    exit 0;
+}
+
 
 # Signal handler for PostgreSQL exceptions.
 $SIG{PIPE} = sub{print "SIGPIPE: ". $!."\n"};
 
-$SIG{TERM} = sub { 
-    `rm -f /usr/local/var/odbcbridge/odbcbridge.pid` ; exit 0 
-    }; 
+$SIG{TERM} = sub { `rm -f $pidfile` ; exit 0 }; 
 
 &UnixODBC::BridgeServer::main;
 
@@ -41,9 +60,15 @@ To terminate the operation of the daemon, use:
   $ /usr/local/etc/init.d/unixodbc stop
 
 The unixodbc script is meant to start the daemon when the system boots
-and terminate the daemon at system shuts down.  To enable automatic
+and terminate the daemon at system shut down.  To enable automatic
 starting and stopping of the daemon, consult your system's
 documentation.
+
+=head1 OPTIONS
+
+=head2 --help
+
+Print help message and exit.
 
 =head1 CONFIGURATION FILES
 
@@ -96,20 +121,21 @@ in the Web server httpd.conf file's User and Group directives.
 
 The odbclogins file that is installed with odbcbridge is shown here.
 
-  # odbclogins - each line has the format server::user::password
-  # IMPORTANT - make sure you chmod 0600 odbclogins, and change
-  # ownership to the user and group of the httpd server - usually
-  # user nobody, group nobody, although some installations 
-  # use user www-data, group www-data, or the values of the
-  # User and Group directives in httpd.conf, if it's something
-  # different from these.
-  # host1::user::password
-  # host2::user::password
-  # host3::user::password
+# odbclogins - each line has the format server::user::password
+# IMPORTANT - make sure you chmod 0600 odbclogins, and, if using
+# UnixODBC with CGI applications, change ownership to the user and 
+# group of the httpd server - usually user nobody, group nobody, 
+# although some installations use apache or www-data, or the values 
+# of the User and Group directives in httpd.conf, if they are 
+# something different.
+# host1::user::password
+# host2::user::password
+# host3::user::password
+
 
 =head1 VERSION INFORMATION AND CREDITS
 
-Revision: $Revision: 0.1 $
+Revision: $Revision: 1.3 $
 
 Written by: Robert Allan Kiesling <rkiesling@earthlink.net>.
 

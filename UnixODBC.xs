@@ -2,7 +2,10 @@
 #include "perl.h"
 #include "XSUB.h"
 
-#include "odbctypes.h"
+/* #include "odbctypes.h" */
+#include <sql.h>
+#include <sqlext.h>
+#include <sqlucode.h>
 
 static int
 not_here(char *s)
@@ -69,11 +72,18 @@ SQLAllocHandle (handle_type, input_handle, output_handle)
 SQLRETURN 
 SQLSetEnvAttr (env_handle, attribute, value, strlen)
         SQLHANDLE env_handle
-        SQLINTEGER attribute
-        SQLPOINTER value
-        SQLINTEGER strlen
+        int attribute
+        int value
+        int strlen
+
         CODE:
-        RETVAL = SQLSetEnvAttr (env_handle, attribute, value, strlen);
+	if ((attribute == SQL_ATTR_ODBC_VERSION) && 
+	  (value == 2)) { value = SQL_OV_ODBC2; }
+	if ((attribute == SQL_ATTR_ODBC_VERSION) && 
+	  (value == 3)) { value = SQL_OV_ODBC3; }
+        RETVAL = SQLSetEnvAttr (env_handle, attribute, 
+	  (SQLPOINTER) value, strlen);
+
         OUTPUT:
                 RETVAL
 
@@ -81,22 +91,31 @@ SQLSetEnvAttr (env_handle, attribute, value, strlen)
 
 SQLRETURN
 SQLSetConnectAttr (connect_handle,attribute,value,strlen)
-        SQLHDBC connect_handle
-        SQLINTEGER attribute;
-        SQLPOINTER value;
-        SQLINTEGER strlen;
+        SQLHANDLE connect_handle
+        SQLINTEGER attribute
+        char *value
+        SQLINTEGER strlen
+
         CODE:
-                RETVAL = SQLSetConnectAttr (connect_handle,
-                                            attribute,
-                                            value, strlen);
+        RETVAL = SQLSetConnectAttr (connect_handle, attribute, 
+	         value, strlen);
         OUTPUT:
                 RETVAL
+
 
 SQLRETURN 
 SQLFreeConnect (handle)
         SQLHDBC handle;
         CODE:
                 RETVAL = SQLFreeConnect (handle);
+        OUTPUT: 
+                RETVAL
+
+SQLRETURN 
+SQLFreeEnv (handle)
+        SQLHDBC handle;
+        CODE:
+                RETVAL = SQLFreeEnv (handle);
         OUTPUT: 
                 RETVAL
 
@@ -172,8 +191,12 @@ SQLGetInfo(connection_handle,info_type,info_value,buffer_length,string_length)
                                         (SQLPOINTER) info,
                                         buffer_length,
                                         length);
-                sv_setpv (ST(2), info);
-                sv_setiv (ST(4), *length);
+		if (buffer_length > 0) {
+	                sv_setpv (ST(2), info);
+		} else {
+			sv_setiv (ST(2), *info);
+		}
+		if (string_length) {sv_setiv (ST(4), *length);}
         OUTPUT:
                 RETVAL 
 
@@ -338,7 +361,7 @@ SQLGetConnectAttr(connection_handle,attribute,value,buffer_length,string_length)
         SQLINTEGER buffer_length
         SQLINTEGER string_length
         PREINIT:
-        SQLPOINTER buf = (SQLPOINTER) safemalloc (buffer_length);
+        char *buf = safemalloc (buffer_length);
         SQLINTEGER *length = (SQLINTEGER*) safemalloc (sizeof(int));
         CODE:
                 RETVAL = SQLGetConnectAttr (connection_handle,
@@ -346,8 +369,12 @@ SQLGetConnectAttr(connection_handle,attribute,value,buffer_length,string_length)
                                             buf,
                                             buffer_length,
                                             length);
-                sv_setpv (ST(2), buf);
-                sv_setiv (ST(4), *length);
+		if (buffer_length <= 0) { /* numeric */
+			sv_setiv (ST(2), *buf);
+		} else {
+	                sv_setpv (ST(2), buf);
+		}
+                if (string_length) { sv_setiv (ST(4), *length); }
 
         OUTPUT:
                 RETVAL
@@ -418,20 +445,36 @@ SQLRETURN
 SQLGetStmtAttr(statement_handle,attribute,value,buffer_length,string_length)
         SQLHSTMT statement_handle
         SQLINTEGER attribute
-	char *value
+	SQLPOINTER value
         SQLINTEGER buffer_length
-        int string_length
+        SQLINTEGER string_length
         PREINIT:
-                char *buf = safemalloc (buffer_length);
+                char *buf = safemalloc (SQL_MAX_MESSAGE_LENGTH);
                 int *length = (int*) safemalloc(sizeof(int));
         CODE:
                 RETVAL = SQLGetStmtAttr (statement_handle,
                                          attribute,
                                          (SQLPOINTER) buf,
                                          buffer_length,
-                                         length );
+                                         (SQLINTEGER*) length );
+	if ((attribute == SQL_ATTR_ASYNC_ENABLE) ||
+            (attribute == SQL_ATTR_CONCURRENCY) || 
+	    (attribute == SQL_ATTR_SIMULATE_CURSOR) ||
+	    (attribute == SQL_ATTR_CURSOR_TYPE) ||
+	    (attribute == SQL_ATTR_ENABLE_AUTO_IPD) ||
+	    (attribute == SQL_ATTR_RETRIEVE_DATA) ||
+	    (attribute == SQL_ATTR_NOSCAN) ||
+	    (attribute == SQL_ATTR_QUERY_TIMEOUT) ||
+	    (attribute == SQL_ATTR_PARAMSET_SIZE) ||
+	    (attribute == SQL_ATTR_MAX_ROWS) ||
+	    (attribute == SQL_ATTR_ROW_NUMBER) ||
+	    (attribute == SQL_ATTR_PARAM_BIND_TYPE) ||
+            (attribute == SQL_ATTR_MAX_LENGTH)) {
+		sv_setiv (ST(2), *buf);
+	} else {
                 sv_setpv (ST(2), buf);
-                sv_setiv (ST(4), *length);
+	}
+	if (string_length) {sv_setiv (ST(4), *length);}
         OUTPUT:
                 RETVAL
 
@@ -439,12 +482,12 @@ SQLRETURN
 SQLSetStmtAttr(statement_handle,attribute,value,string_length)
         SQLHSTMT statement_handle
         SQLINTEGER attribute
-        SQLPOINTER value
+        char *value
         SQLINTEGER string_length
         CODE:
                 RETVAL = SQLSetStmtAttr (statement_handle,
                                          attribute,
-                                         value,
+                                         (SQLPOINTER) value,
                                          string_length);
         OUTPUT:
                 RETVAL
@@ -489,20 +532,20 @@ SQLRETURN
 SQLGetEnvAttr(environment_handle,attribute,value,buffer_length,string_length)
         SQLHENV environment_handle
         SQLINTEGER attribute
-	char *value
+	SQLPOINTER value
         SQLINTEGER buffer_length
 	SQLINTEGER string_length
         PREINIT:
-                SQLINTEGER *strlen = safemalloc (sizeof(int));
                 char *buf = safemalloc (buffer_length);
+		SQLINTEGER *length = (SQLINTEGER *) safemalloc(sizeof(int));
         CODE:
                 RETVAL = SQLGetEnvAttr (environment_handle,
                                         attribute,
-                                        (SQLPOINTER) buf,
+                                        buf,
                                         buffer_length,
-                                        strlen);
-                sv_setiv (ST(4), *strlen);
-                sv_setpv (ST(2), buf);
+                                        length);
+                sv_setiv (ST(2), *buf);
+                if (string_length) { sv_setiv (ST(4), *length); }
         OUTPUT:
                 RETVAL
 
@@ -673,7 +716,7 @@ SQLGetDiagField (handle_type,handle,rec_number,diag_identifier,diag_info_ptr,buf
         SQLSMALLINT buffer_length = (SQLSMALLINT) SvIV (ST(5));
         PREINIT:
         char * diag_info_ptr = safemalloc (buffer_length);
-        int string_length_ptr;
+        int * string_length_ptr = safemalloc (sizeof (int));
         CODE:
                 RETVAL = SQLGetDiagField (handle_type,
                                           handle,
@@ -681,9 +724,9 @@ SQLGetDiagField (handle_type,handle,rec_number,diag_identifier,diag_info_ptr,buf
                                           diag_identifier,
                                           (SQLPOINTER) diag_info_ptr,
                                           buffer_length,
-                                          (SQLSMALLINT*) &string_length_ptr);
+                                          (SQLSMALLINT *)string_length_ptr);
                 sv_setpv (ST(4), diag_info_ptr);
-                sv_setiv (ST(6), string_length_ptr);
+                sv_setiv (ST(6), *string_length_ptr);
         OUTPUT:
                 RETVAL
 
@@ -957,51 +1000,66 @@ SQLEndTran(handle_type,handle,completion_type)
                 RETVAL
 
 SQLRETURN SQLError(environment_handle,connection_handle,statement_handle,sqlstate,native_error,message_text,buffer_length,text_length )
-        SQLHENV environment_handle = (SQLHENV) SvIV (ST(0));
-        SQLHDBC connection_handle = (SQLHDBC) SvIV (ST(1));
-        SQLHSTMT statement_handle = (SQLHSTMT) SvIV (ST(2));
-        SQLSMALLINT buffer_length = (SQLSMALLINT) SvIV (ST(6));
+        SQLHENV environment_handle
+        SQLHDBC connection_handle
+        SQLHSTMT statement_handle
+        char *sqlstate
+        int native_error
+        char *message_text
+        int buffer_length
+	int text_length
         PREINIT:
-                char *sqlstate = safemalloc (buffer_length);
-                char *message_text = safemalloc (buffer_length);
-                int native_error, text_length;
+                SQLCHAR *st = safemalloc (buffer_length);
+                SQLINTEGER native ;
+                SQLCHAR *text = safemalloc (buffer_length);
+                SQLSMALLINT length;
         CODE:
                 RETVAL = SQLError (environment_handle,
                                    connection_handle,
                                    statement_handle,
-                                   (SQLCHAR*) sqlstate, 
-                                   (SQLINTEGER*) &native_error,
-                                   (SQLCHAR*) message_text,
+                                   st, 
+                                   &native,
+                                   text,
                                    buffer_length,
-                                   (SQLSMALLINT*) &text_length);
-                sv_setpv (ST(3), sqlstate);
-                sv_setiv (ST(4), native_error);
-                sv_setpv (ST(5), message_text);
-                sv_setiv (ST(7), text_length);
+                                   &length);
+                sv_setpv (ST(3), st);
+                sv_setiv (ST(4), native);
+                sv_setpv (ST(5), text);
+                sv_setiv (ST(7), length);
         OUTPUT:
                 RETVAL
 
 SQLRETURN 
 SQLGetConnectOption(connection_handle,option,value)
-        SQLHDBC connection_handle = (SQLHDBC) SvIV (ST(0));
-        SQLUSMALLINT option = (SQLUSMALLINT) SvIV (ST(1));
-        SQLPOINTER value = (SQLPOINTER) SvPV (ST(2), PL_na);
+        SQLHDBC connection_handle
+        SQLUSMALLINT option
+        SQLPOINTER value
+	PREINIT:
+	char *buf = safemalloc (SQL_MAX_MESSAGE_LENGTH * sizeof (char));
         CODE:
                 RETVAL = SQLGetConnectOption (connection_handle,
                                               option,
-                                              value);
+                                              (SQLPOINTER) buf);
+	if ((option == SQL_ATTR_TRACE) ||
+	    (option == SQL_ACCESS_MODE) ||
+	    (option == SQL_AUTOCOMMIT) ||
+	    (option == SQL_ODBC_CURSORS)) {
+		sv_setiv (ST(2), *buf);
+	} else {
+		sv_setpv (ST(2), buf);
+	}
         OUTPUT:
                 RETVAL
 
 SQLRETURN 
 SQLSetConnectOption(connection_handle,option,value)
-        SQLHDBC connection_handle = (SQLHDBC) SvIV (ST(0));
-        SQLUSMALLINT option = (SQLSMALLINT) SvIV (ST(1));
-        int value = SvIV (ST(2));
+        SQLHDBC connection_handle
+        SQLUSMALLINT option
+	unsigned value
         CODE:
                 RETVAL = SQLSetConnectOption (connection_handle,
                                               option,
-                                              (SQLLEN) value);
+                                              value);
         OUTPUT:
                 RETVAL
 

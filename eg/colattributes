@@ -156,6 +156,12 @@ for (my $cn = 1; $cn <= $ncols; $cn++) {
 	foreach my $attr (keys %char_attrs) {
 	    $r = SQLColAttribute ($sth, $cn, $char_attrs{$attr},
 				  $rbuf, 255, $rbuflen, $numeric_attr);
+$r = SQLCancel ($sth);
+if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+    &getdiagrec ($SQL_HANDLE_STMT, $sth);
+    exit 1;
+}
+
 	    for (my $j = 0; $j <= $#headings; $j++) {
 		if ($attr =~ m"$headings[$j]") {
 		    $rowbuffer[$j] = $rbuf;

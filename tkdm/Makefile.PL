@@ -1,7 +1,12 @@
-# See lib/ExtUtils/MakeMaker.pm for details of how to influence
-# the contents of the Makefile that is written.
+# $Id: Makefile.PL,v 1.5 2003/07/20 19:47:01 kiesling Exp $
 
-# $Id: Makefile.PL,v 1.4 2003/07/13 17:12:35 kiesling Exp $
+# This is how ExtUtils::MakeMaker tests for installed packages.
+my $eval = 'require Tk';
+eval $eval;
+
+if ($@) {
+    warn "Warning: prerequisite $prereq failed to load: $@";
+}
 
 my $makefile = <<EOMAKEFILE;
 all: install

@@ -1,6 +1,8 @@
 #! /bin/sh
 
-# $Id: unixodbc,v 1.5 2003/07/14 18:03:34 kiesling Exp $
+# Shell script to start and stop the odbcbridge daemon.
+
+# $Id: unixodbc,v 1.6 2003/07/23 13:08:04 kiesling Exp $
 
 BRIDGEUSER='nobody' ; export BRIDGEUSER
 PIDFILE='/usr/local/var/odbcbridge/odbcbridge.pid' ; export PIDFILE
@@ -26,4 +28,4 @@ case "$1" in
 	;;
 esac
 
-exit 0
+exit 1

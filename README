@@ -45,23 +45,29 @@ notes.
   UnixODBC.pm links against the unixODBC run time libraries,
   from http://www.easysoft.com, so they need to be installed 
   first.  This version of UnixODBC.pm works with version 2.2.0
-  and later of the libraries.
+  and later of the libraries.   You'll also need the unixODBC
+  C-language include files from unixODBC to compile UnixODBC.pm.  
+  They should be installed in /usr/local/include when you install 
+  unixODBC.  If they aren't, you can find them in the include/ 
+  subdirectory of the unixODBC source code package.
   
   To use the bridge server (when you want to use ODBC to query
   DBMS servers on networked systems), you'll need to have
   installed on each host the same versions of Perl, Net::Daemon,
-  PlRPC, and the modules that they require. This version of
-  UnixODBC.pm works with the following packages:
+  PlRPC, and the modules that they require. Tkdm requires Perl/Tk,
+  but. You can build the UnixODBC library module and the non-network 
+  text-mode programs without them.  This version of UnixODBC works 
+  with the following libraries:
 
-  - Net-Daemon-0.37
-  - PlRPC-0.2015
+  - Net-Daemon-0.35 - 0.37
+  - PlRPC-0.2015 - 0.2017
+  - Tk800.021 - 0.23
 
   You might also need to install Sys::Syslog.pm and Storable.pm
-  if you have an older version of Perl on each system.
+  if you have an older version of Perl.
 
-  IMPORTANT - Later versions of the packages should work fine,
-  but each system must use the same versions of ALL the Perl
-  software that UnixODBC uses - Perl, UnixODBC.pm,
+  IMPORTANT - Each system must use the same versions of ALL the 
+  Perl software that UnixODBC uses - Perl, UnixODBC.pm,
   UnixODBC::BridgeServer.pm, Net-Daemon and PlRPC packages,
   Sys::Syslog.pm, and Storable.pm - on each networked system in
   order for the Bridge clients and servers to communicate with
@@ -339,6 +345,12 @@ notes.
     can make a symlink from the actual Perl interpreter, or change 
     the first line in each script to the path of the perl binary.  
 
+  - If a program seems to take forever to start, it generally
+    indicates that the Bridge server can't make a connection
+    to another machine on a network.  This usually is a problem
+    with the network connection; for example, the remote system is
+    not turned on.
+
   - "Failed to make first connection..." to a DSN generally
     means that either the remote bridge server is not running,
     you were not able to log in, or the perl and library versions
@@ -412,4 +424,4 @@ Copyright 2002-2003 by Robert Allan Kiesling and licensed using
 the same terms as Perl.  Refer to the file "Artistic" for the 
 details.
 
-$Id: README,v 1.4 2003/07/14 18:12:51 kiesling Exp $
+$Id: README,v 1.7 2003/07/31 16:31:10 kiesling Exp $

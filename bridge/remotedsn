@@ -1,5 +1,5 @@
 #! /usr/local/bin/perl
-# $Id: remotedsn,v 1.3 2003/07/14 17:00:33 kiesling Exp $
+# $Id: remotedsn,v 1.4 2003/07/31 23:12:30 kiesling Exp $
 
 require 5.004;
 use strict;
@@ -81,8 +81,8 @@ while (1) {
     }
 }
 
-$r = $c -> sql_free_handle ($SQL_HANDLE_DBC, $cnh);
-$r = $c -> sql_free_handle ($SQL_HANDLE_ENV, $evh);
+$r = $c -> sql_free_connect ($cnh);
+$r = $c -> sql_free_env ($evh);
 
 ($r, $sqlstate, $native, $text, $textlen) = 
     $c -> sql_get_diag_rec ($SQL_HANDLE_ENV, $evh, 1, 255);
@@ -126,7 +126,7 @@ sources.
 
 =head1 VERSION INFORMATION AND CREDITS
 
-Revision: $Revision: 1.3 $
+Revision: $Revision: 1.4 $
 
 Written by: Robert Allan Kiesling <rkiesling@earthlink.net>.
 

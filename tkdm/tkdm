@@ -1,12 +1,18 @@
 #!/usr/bin/perl
 
-#$Id: tkdm,v 1.12 2003/07/14 17:09:53 kiesling Exp $
+#$Id: tkdm,v 1.13 2003/07/22 01:27:49 kiesling Exp $
 
-$VERSION=0.13;
+    ###*** 
+    # So far: (2003-07-21)
+    # - Added $dsnpane -> update to init(),
+    # - Set linespacing to font size in init().
+    #
+
+$VERSION='0.14a';
 @EXPORT_OK=(qw/$VERSION/);
 
 use Tk;
-use Tk::widgets qw(Canvas Font Balloon Table);
+use Tk::widgets qw(Dialog Canvas Font Balloon Table TextUndo CmdLine);
 use Carp;
 use Getopt::Long;
 use UnixODBC qw(:all);
@@ -92,6 +98,8 @@ my $dsnselectedfont = '-*-helvetica-bold-r-*-*-12-120-*-*-*-*-*-*';
 my $resultsfont = '-*-courier-medium-r-*-*-12-120-*-*-*-*-*-*';
 my $mwheight = 400;
 my $mwwidth = 600;
+
+Tk::CmdLine::SetResources ("*font: " . $dsnnormalfont, 'widgetDefault');
 
 my $optresult = GetOptions ( "borderwidth=i" => \$borderwidth,
 			     "debug" => \$debug,
@@ -433,7 +441,7 @@ $tablepane -> Subwidget ($_) -> configure (-width => 10)
 $tablepane -> configure (-scrollregion =>
 			 [0, 0, $tablepane -> width, 
 			  $tablepane -> height]);
-$tablepane -> place (-relx => 0.40, -y => 0, -relwidth => 0.6, 
+$tablepane -> place (-relx => 0.40, -y => 0.10, -relwidth => 0.60, 
 				 -relheight => 1.0);
 # Direct access to canvas for misc methods not in Canvas class...
 $tablecanvas = $tablepane -> Subwidget ('canvas');
@@ -444,18 +452,23 @@ $tablecanvas = $tablepane -> Subwidget ('canvas');
 #$tablepane -> Subwidget ($_) -> configure (-width => 10) 
 #    foreach (qw/xscrollbar yscrollbar/);
 # This is re-configured when pane is filled in.
-#$tablepane -> configure (-scrollregion =>
-#		       [0, 0, $tablepane -> width, $tablepane -> height]);
+$tablepane -> configure (-scrollregion =>
+		       [0, 0, $tablepane -> width, $tablepane -> height]);
 
 # Create a minimal menu for the canvases.
 my $canvasmenu = $mw -> Menu (-type => 'normal', -tearoff => '',
-			      Name => 'canvasMenu',
-			      -font => $dsnnormalfont);
+			      Name => 'canvasMenu');
+
+$canvasmenu -> add ('command', -label => 'Help...', 
+		    -accelerator => 'F1',
+		    -command => [\&self_help, $mw]);
 $canvasmenu -> add ('command', -label => 'About...', 
 		    -command => [\&about, $mw]);
+$canvasmenu -> add ('separator');
 $canvasmenu -> add ('command', -label => 'Exit', 
+		    -accelerator => 'F10',
 	-command => sub {$mw -> WmDeleteWindow});
-$dsnpane -> place (-x => 0, -y => 0, -relwidth => 0.4, -relheight => 1.0);
+$dsnpane -> place (-x => 0, -y => 0.10, -relwidth => 0.4, -relheight => 1.0);
 $mw -> Tk::bind ($dsncanvas, '<3>',
 	[\&postpopupmenu, $canvasmenu, Ev('X'), Ev('Y')]);
 $mw -> Tk::bind ($tablecanvas, '<3>',
@@ -464,15 +477,8 @@ $mw -> Tk::bind ($tablecanvas, '<3>',
 $mw -> Tk::bind ($dsncanvas, '<ButtonPress-1>', 
 		  [\&dsnclick, $dsnpane, Ev('x'), Ev('y')]);
 
-# Modified Tk::Text menu, re-implemented in Perl space, with additions
-# that are in the canvas menu.
-my $textmenu = $mw -> Menu (-type => 'normal', -tearoff => '',
-			    Name => 'textMenu',
-			    -font => $dsnnormalfont);
-$textmenu -> add ('command', -label => 'About...', 
-		    -command => [\&about, $mw]);
-$textmenu -> add ('command', -label => 'Exit', 
-	-command => sub {$mw -> WmDeleteWindow});
+$mw -> Tk::bind ('<F1>', [\&self_help]);
+$mw -> Tk::bind ('<F10>', sub {$mw -> WmDeleteWindow});
 
 #
 # Text widget resizing stuff.
@@ -494,7 +500,6 @@ my %textsizes;
 
 sub about {
     my $mw = $_[0];
-    require Tk::Dialog;
     my $abouttext = "Tkdm Version $VERSION\n" .
 	"Copyright \xa9 2002-2003 by Robert Allan Kiesling.\n" .
 	"Licensed using the same license as Perl.  Refer to the file " .
@@ -503,10 +508,6 @@ sub about {
 				-text => $abouttext,
 				-bitmap => 'info',
 				-buttons => [qw/Dismiss/]);
-    $dialog -> {SubWidget}{B_Dismiss} -> 
-	configure (-font => $dsnnormalfont);
-    $dialog -> {SubWidget}{message} -> 
-	configure (-font => $dsnnormalfont);
     $dialog -> Show;
 }
 
@@ -618,28 +619,23 @@ sub close_dsn {
 sub getdsnlogin {
     my ($host, $dsn) = @_;
     my $dw = new MainWindow (-title => 'Log In');
-    my $userlabel = $dw -> Label (-text => 'User Name: ',
-				  -font => $dsnnormalfont) 
+    my $userlabel = $dw -> Label (-text => 'User Name: ') 
 	-> grid (-row => 1, -column => 1, -columnspan => 2,
 		 -padx => 5, -pady => 5);
-    my $passwordlabel = $dw -> Label (-text => 'Password: ',
-				      -font => $dsnnormalfont) 
+    my $passwordlabel = $dw -> Label (-text => 'Password: ') 
 	-> grid (-row => 2, -column => 1, -columnspan => 2,
 		 -padx => 5, -pady => 5);
-    my $userentry = $dw -> Entry (-font => $dsnnormalfont,
-				  -textvariable => \$dsnloginusername)
+    my $userentry = $dw -> Entry (-textvariable => \$dsnloginusername)
 	-> grid (-row => 1, -column => 3, -columnspan => 5,
 		 -padx => 5, -pady => 5); 
     $dw -> Advertise ('userentry' => $userentry);
-    my $passwordentry = $dw -> Entry (-font => $dsnnormalfont,
-				      -textvariable => \$dsnloginpassword,
+    my $passwordentry = $dw -> Entry (-textvariable => \$dsnloginpassword,
 				      -show => '*')
 	-> grid (-row => 2, -column => 3, -columnspan => 5,
 		 -padx => 5, -pady => 5); 
     $dw -> Advertise ('passwordentry' => $passwordentry);
     my $loginbutton = 
 	$dw -> Button ( -text => 'Log In',
-	       -font => $dsnnormalfont,
 	       -height => 1,
 	       -width => 10,
 	       -command => sub {tablelogin ($dw, $host, $dsn, 
@@ -650,7 +646,6 @@ sub getdsnlogin {
 		     -padx => 5, -pady => 5);
     my $cancelbutton = 
 	$dw -> Button (-text => 'Cancel',
-		       -font => $dsnnormalfont,
 		       -height => 1,
 		       -width => 10,
 		       -command => sub {$dw -> WmDeleteWindow})
@@ -786,10 +781,6 @@ sub error_dialog {
 				-text => $errortext,
 				-bitmap => 'error',
 				-buttons => [qw/Dismiss/]);
-    $dialog -> {SubWidget}{B_Dismiss} -> 
-	configure (-font => $dsnnormalfont);
-    $dialog -> {SubWidget}{message} -> 
-	configure (-font => $dsnnormalfont);
     $dialog -> Show;
 }
 
@@ -899,7 +890,6 @@ sub columnselectframe {
     foreach my $c (@columns) {
 	$b = $selectcanvas -> 
 	    Checkbutton (-text => $c,
-			 -font => $dsnnormalfont,
 			 -relief => $relief,
 			 -width => $maxwidth,
 			 -borderwidth => 2,
@@ -913,7 +903,6 @@ sub columnselectframe {
 					   -window => $b);
 	$e = $selectcanvas -> 
 	    Entry (-width => $maxwidth,
-		   -font => $resultsfont,
 		   -relief => 'sunken',
 		   -background => $background);
 	$tablepane -> Advertise ("en_$c" => $e);
@@ -996,8 +985,7 @@ sub drawdsnpane {
 				     + $imagepadding,
 				     $insert_y_org,
 				     -text => $label -> {table},
-				     -anchor => 'nw',
-				     -font => $dsnnormalfont);
+				     -anchor => 'nw');
 				     
 	    $label_length = 
 		($normalfontmetric -> measure ($label -> {table})) +
@@ -1022,8 +1010,7 @@ sub drawdsnpane {
 		    createText ($dsn_indent + $dsnxpmwidth + $imagepadding, 
 				$insert_y_org, 
 				-text => $label -> {dsn}, 
-				-anchor => 'nw',
-				-font => $dsnnormalfont);
+				-anchor => 'nw');
 	    $label_length = 
 		($normalfontmetric -> measure ($label -> {dsn})) +
 					   $dsnxpmwidth +
@@ -1051,8 +1038,7 @@ sub drawdsnpane {
 		createText ($host_indent + $termxpmwidth + $imagepadding, 
 			    $insert_y_org, 
 			    -text => $label -> {host}, 
-			    -anchor => 'nw',
-			    -font => $dsnnormalfont);
+			    -anchor => 'nw');
 	    $label_length = 
 		($normalfontmetric -> measure ($label -> {host})) +
 					   $termxpmwidth +
@@ -1072,32 +1058,23 @@ sub drawdsnpane {
 
 sub execute_text_query {
     my ($labelptr) = @_;
-    my @stdargs = ();
     my $qdialog = 
 	new MainWindow ( -title => 'SQL Query');
-    my $qtextbox = $qdialog -> Scrolled('Text',
-                        -height => 15, -width => 60,
-                        -scrollbars => 'osoe',
-                        -font => $dsnnormalfont,
-                        @stdargs) ->
-		grid (-row => 1, -column => 1, -columnspan => 2);
-    $qtextbox -> Subwidget ('xscrollbar') -> configure (-width => 10);
-    $qtextbox -> Subwidget ('yscrollbar') -> configure (-width => 10);
+    my $qtextbox = new_textbox ($qdialog, -height => 15, -width => 60);
+    $qtextbox -> grid (-row => 1, -column => 1, -columnspan => 2);
     $qtextbox -> insert ('end', $userquerytext);
     $qdialog -> Advertise ('qtextbox' => $qtextbox);
 
     my $acceptbutton => $qdialog -> Button (-text => 'Submit',
-               -font => $dsnnormalfont,
                -height => 1, -width => 10,
                -command => sub {sql_query ($qdialog, $labelptr)},
                @stdargs) -> 
-        grid (-row => 2, -column => 1);
+        grid (-row => 2, -column => 1, -pady => 10);
     my $dismissbutton => $qdialog -> Button (-text => 'Dismiss',
-               -font => $dsnnormalfont,
                -height => 1, -width => 10,
                -command => sub {$qdialog -> WmDeleteWindow},
                @stdargs) -> 
-       grid (-row => 2, -column => 2);
+       grid (-row => 2, -column => 2, -pady => 10);
 }
 
 sub sql_query {
@@ -1191,7 +1168,6 @@ sub display_result_set {
 	$labelptr -> {result_cols} . ' columns in result set.';
 
     my $setsizelabel = $tablecanvas -> Label (-text => $setsizetext,
-					      -font => $dsnnormalfont,
 					      -background => $background);
     $tablepane -> Advertise ('setsizelabel' => $setsizelabel);
     $tablepanetags{'setsizelabel'} = 
@@ -1227,7 +1203,7 @@ sub display_result_set {
 	      my ($tw, $th) = ($textsizes{"$rref.$cidx"} =~ /(.*)x(.*)/);
 
 	      $textwidget = $resultslist -> 
-		  Scrolled ('Text', 
+		  Scrolled ('TextUndo', 
 			    -height => $th,
 			    -width => $tw,
 			    -scrollbars => 'se',
@@ -1248,10 +1224,6 @@ sub display_result_set {
 						  -width => 20,
 						  @textoptions);
 	  }
-	  $mw -> Tk::bind ('Tk::Text', '<3>', '');
-	  $mw -> Tk::bind ($textwidget, '<3>',
-			   [\&postpopupmenu, 
-			    $textmenu, Ev('X'), Ev('Y')]);
 	  $textwidget -> insert ('end', ${$rref}[$cidx]);
           $resultslist -> put ($ridx, $cidx, $textwidget);
          }
@@ -1740,21 +1712,69 @@ sub describe_table {
     return @columnnames;
 }
 
+sub new_textbox {
+    my $parent = shift;
+    my @args = @_;
+    my @stdargs = ('-scrollbars', 'osoe', 
+			  '-background', $background);
+		   
+    my $t = $parent -> Scrolled ('TextUndo', @args, @stdargs);
+    $t -> Subwidget ($_) -> configure (-width => 10)
+	foreach (qw/xscrollbar yscrollbar/);
+    return $t;
+}
+
 sub init {
-    my $textid = $dsnpane -> createText (10, 10, 
+    $mw -> Busy;
+    my $y_org = 10;
+    my $textid = $dsnpane -> createText (10, $y_org, 
          -text => 'Logging in to peer hosts....',
 	 -anchor => 'nw',
 	 -font => $dsnnormalfont);
-    $mw -> Busy;
+    $y_org += $normalfontmetric -> actual (-size) + $imagepadding;
+    my $textid2 = $dsnpane -> createText (10, $y_org, 
+         -text => 'Press F1 for help,',
+	 -anchor => 'nw',
+	 -font => $dsnnormalfont);
+    $y_org += $normalfontmetric -> actual (-size) + $imagepadding;
+    my $textid3 = $dsnpane -> createText (10, $y_org, 
+         -text => 'right mouse button for menu.',
+	 -anchor => 'nw',
+         -font => $dsnnormalfont);
+    $dsnpane -> update;
     getpeerlogins ();
     getdsns ();
     dsntree ($dsnpane);
-    $mw -> Unbusy;
     $dsnpane -> delete ($textid);
+    $dsnpane -> delete ($textid2);
+    $dsnpane -> delete ($textid3);
+    $mw -> Unbusy;
 }
 
-# Let the main window draw itself before trying to log in to peers.
-$mw -> after (500, \&init);
+sub self_help {
+    my $pod2text = `which pod2text`;
+    chomp $pod2text;
+    my $hw = new MainWindow (-title => 'Tkdm Manual');
+    my $ht = $hw -> Scrolled ('TextUndo', -background => $background,
+			  -font => $dsnnormalfont,
+			      -scrollbars => 'e') 
+	-> pack (-expand => 'y', -fill => 'both');
+    $ht -> Subwidget ('yscrollbar') -> configure (-width => 10);
+    my $hdismiss = $hw -> Button (-text => 'Dismiss',
+				  -font => $dsnnormalfont,
+				  -command => sub {$hw -> WmDeleteWindow}) 
+	-> pack (-pady => 10);
+
+    if (! length ($pod2text)) {
+	$ht -> insert ('0.0', "Tkdm can't find the perl program " . 
+		       "\"pod2man\" to generate the documentation.");
+    }
+    my $mantext = `$pod2text $0`;
+    $ht -> insert ('0.0', $mantext);
+    $ht -> markSet ('insert', '0.0');
+}
+
+init();
 MainLoop;
 
 =head1 NAME
@@ -1772,6 +1792,22 @@ interface and the UnixODBC BridgeServer.pm module for network
 communication.  Refer to the UnixODBC::BridgeServer man page and the
 README file of the UnixODBC package for details of how to configure
 multi-host communication with UnixODBC.pm.
+
+A summary of some of the commands is described below.
+
+=head2 F1
+
+Open a help window with this document.
+
+=head2 F10 
+
+Exit tkdm.
+
+=head2 Mouse-3 (Right Mouse Button)
+
+If you click the right mouse button when the pointer is over a results
+set field, tkdm opens a menu of options for that text.  Otherwise,
+clicking the right mouse button opens the program's main menu.
 
 =head1 OPTIONS
 
