@@ -14,6 +14,11 @@ WriteMakefile(
     'VERSION_FROM'      => 'RSS.pm',
 );
 
+WriteMakefile(
+    'NAME'		=> 'UnixODBC::DriverConf',
+    'VERSION_FROM'      => 'DriverConf.pm',
+);
+
 
 
 

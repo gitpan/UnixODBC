@@ -2,10 +2,45 @@
 #include "perl.h"
 #include "XSUB.h"
 
-/* #include "odbctypes.h" */
+/* $Id: UnixODBC.xs,v 1.34 2004/03/24 00:54:42 kiesling Exp $ */
+
 #include <sql.h>
 #include <sqlext.h>
 #include <sqlucode.h>
+
+/* from ini.h */
+#define     INI_MAX_LINE            1000
+#define     INI_MAX_PROPERTY_NAME   INI_MAX_LINE
+#define     INI_MAX_PROPERTY_VALUE  INI_MAX_LINE
+
+
+/* from odbcinstext.h */
+typedef struct	tODBCINSTPROPERTY
+{
+	struct tODBCINSTPROPERTY *pNext; 
+		/* pointer to next property, NULL if last property */
+	char	szName[INI_MAX_PROPERTY_NAME+1];
+	        /* property name */
+	char	szValue[INI_MAX_PROPERTY_VALUE+1];
+		/* property value */
+	int	nPromptType; 
+		/* PROMPTTYPE_TEXTEDIT, PROMPTTYPE_LISTBOX, 
+		   PROMPTTYPE_COMBOBOX, PROMPTTYPE_FILENAME */
+	char	**aPromptData;
+		/* array of pointers terminated with a NULL value in array. */
+	char	*pszHelp;
+		/* help on this property (driver setups should keep it short)*/
+	void	*pWidget;
+		/* CALLER CAN STORE A POINTER TO ? HERE	*/
+	int	bRefresh;
+		/* app should refresh widget ie Driver Setup has changed 
+			aPromptData or szValue  */
+	void 	*hDLL;
+		/* for odbcinst internal use... only first property has 
+		valid one */
+} ODBCINSTPROPERTY, *HODBCINSTPROPERTY;
+
+
 
 static int
 not_here(char *s)
@@ -1076,4 +1111,225 @@ SQLPutData(statement_handle,data,strlen_or_ind)
         OUTPUT:
                 RETVAL
 
+
+SQLCHAR*
+__odbcinst_system_file_path (path)
+	char *path
+        CODE: 
+	sv_setpv (ST(0), odbcinst_system_file_path ());
+
+
+
+SQLRETURN 
+__SQLValidDSN(dsn)
+	char *dsn
+	CODE:
+		RETVAL = SQLValidDSN (dsn);
+	OUTPUT:
+		RETVAL
+
+AV *
+__SQLGetInstalledDrivers ()
+	PREINIT:
+	char *tbuf, *nbuf = (SQLCHAR*) safemalloc (SQL_MAX_MESSAGE_LENGTH);
+	int i, r, nret;
+	char *p, *j;
+	SV **s;
+	CODE:
+	RETVAL = newAV();
+            r = SQLGetInstalledDrivers (nbuf, SQL_MAX_MESSAGE_LENGTH, &nret);
+	nbuf[nret]=0;
+	j = nbuf;
+	i = 0;
+	for (p = j; p < &nbuf[nret]; j = p + 1, ++i) {
+		p = strchr (j, 0);
+		New (1, (SQLCHAR *)tbuf, p - j + 1, char);
+		strncpy (tbuf, j, p - j);
+		tbuf[p - j] = 0;
+		av_extend (RETVAL, i);
+		s = av_store (RETVAL, i, newSVpv(tbuf, p - j));
+		if (!s) av_store (RETVAL, i, &PL_sv_undef);
+		safefree(tbuf);
+	}
+	
+	safefree(nbuf);
+	OUTPUT:
+		RETVAL	
+
+HV *
+__ODBCINSTConstructPropertyValues (driver)
+	SV *driver;
+	PREINIT:
+	ODBCINSTPROPERTY *h = (ODBCINSTPROPERTY *) 
+          safemalloc (sizeof (ODBCINSTPROPERTY));
+	ODBCINSTPROPERTY *h1, *htmp;
+	SV *valueSv, **r1;
+	char *val;
+	HV *h2 = newHV ();
+	int r;
+	CODE:
+        r = ODBCINSTConstructProperties (SvPV(driver, PL_na), h);
+	h1 = h -> pNext;
+	while (h1) {
+	  valueSv = newSVpv (h1 -> szValue, strlen (h1 -> szValue));
+	  if (!valueSv) {
+            warn ("ConstructProperties: invalid hash value.");
+            XSRETURN_UNDEF;
+          }
+	  r1 = hv_store (h2, h1 -> szName, 
+            strlen (h1 -> szName), valueSv, 0);
+	  h1 = h1 -> pNext;
+        }
+	RETVAL = h2;
+	h1 = h;
+	while (h1) {
+	  htmp = h1 -> pNext;
+	  safefree (h1);
+	  h1 = htmp;
+        }
+         
+	OUTPUT:
+		RETVAL
+
+HV *
+__ODBCINSTConstructPropertyHelp (driver)
+	SV *driver;
+	PREINIT:
+	ODBCINSTPROPERTY *h = (ODBCINSTPROPERTY *) 
+          safemalloc (sizeof (ODBCINSTPROPERTY));
+	ODBCINSTPROPERTY *h1, *htmp;
+	SV *valueSv, **r1;
+	char *val;
+	HV *h2 = newHV ();
+	int r;
+	CODE:
+        r = ODBCINSTConstructProperties (SvPV(driver, PL_na), h);
+	h1 = h -> pNext;
+	while (h1) {
+	  if (h1 -> pszHelp) {
+	    valueSv = newSVpv (h1 -> pszHelp, strlen (h1 -> pszHelp));
+	    if (!valueSv) {
+              warn ("ConstructPropertyHelp: invalid hash value.");
+              XSRETURN_UNDEF;
+            }
+	    r1 = hv_store (h2, h1 -> szName, 
+              strlen (h1 -> szName), valueSv, 0);
+          }
+          h1 = h1 -> pNext;
+        }
+	RETVAL = h2;
+	h1 = h;
+	while (h1) {
+	  htmp = h1 -> pNext;
+	  safefree (h1);
+	  h1 = htmp;
+        }
+         
+	OUTPUT:
+		RETVAL
+
+HV *
+__ODBCINSTConstructPropertyPrompt (driver)
+	SV *driver;
+	PREINIT:
+	ODBCINSTPROPERTY *h = (ODBCINSTPROPERTY *) 
+          safemalloc (sizeof (ODBCINSTPROPERTY));
+	ODBCINSTPROPERTY *h1, *htmp;
+	SV *valueSv, **r1;
+	char *val;
+	HV *h2 = newHV ();
+	int r;
+	CODE:
+        r = ODBCINSTConstructProperties (SvPV(driver, PL_na), h);
+	h1 = h -> pNext;
+	while (h1) {
+	    valueSv = newSViv (h1 -> nPromptType);
+	    if (!valueSv) {
+              warn ("ConstructPropertyHelp: invalid hash value.");
+              XSRETURN_UNDEF;
+            }
+	    r1 = hv_store (h2, h1 -> szName, 
+              strlen (h1 -> szName), valueSv, 0);
+            h1 = h1 -> pNext;
+        }
+	RETVAL = h2;
+	h1 = h;
+	while (h1) {
+	  htmp = h1 -> pNext;
+	  safefree (h1);
+	  h1 = htmp;
+        }
+         
+	OUTPUT:
+		RETVAL
+
+HV *
+__ODBCINSTConstructPropertyPromptData (driver)
+	SV *driver;
+	PREINIT:
+	ODBCINSTPROPERTY *h = (ODBCINSTPROPERTY *) 
+          safemalloc (sizeof (ODBCINSTPROPERTY));
+	char *prompts = (char *)safemalloc (SQL_MAX_MESSAGE_LENGTH);
+	ODBCINSTPROPERTY *h1, *htmp;
+	SV *valueSv, **r1;
+	char *val;
+	HV *h2 = newHV ();
+	int r, i;
+	CODE:
+        r = ODBCINSTConstructProperties (SvPV(driver, PL_na), h);
+	h1 = h -> pNext;
+	while (h1) {
+	  if (h1 -> aPromptData) {
+
+	    *prompts = 0;
+
+	    for (i = 0; h1 -> aPromptData[i]; i++) {
+	      if (*prompts) {
+                sprintf (prompts, "%s%s\n", prompts, h1 -> aPromptData[i]);
+              } else {
+                sprintf (prompts, "%s\n", h1 -> aPromptData[i]);
+              }
+
+            }
+
+	    valueSv = newSVpv (prompts, strlen (prompts));
+	    if (!valueSv) {
+              warn ("ConstructPropertyHelp: invalid hash value.");
+              XSRETURN_UNDEF;
+            }
+	    r1 = hv_store (h2, h1 -> szName, 
+              strlen (h1 -> szName), valueSv, 0);
+          } 
+          h1 = h1 -> pNext;
+        }
+	RETVAL = h2;
+	h1 = h;
+	while (h1) {
+	  htmp = h1 -> pNext;
+	  safefree (h1);
+	  h1 = htmp;
+        }
+         
+	OUTPUT:
+		RETVAL
+
+unsigned int
+__SQLGetConfigMode ()
+	PREINIT:
+		unsigned int mode, r;
+	CODE:
+		r = SQLGetConfigMode (&mode);
+		RETVAL = mode;
+	OUTPUT:
+		RETVAL	
+	
+
+unsigned int
+__SQLSetConfigMode (mode)
+	unsigned int mode;
+	CODE:
+		RETVAL = SQLSetConfigMode (mode);
+	OUTPUT:
+		RETVAL	
+	
 

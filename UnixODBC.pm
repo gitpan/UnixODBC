@@ -1,6 +1,6 @@
 package UnixODBC;
 
-#$Id: UnixODBC.pm,v 1.40 2004/03/06 22:12:36 kiesling Exp $
+#$Id: UnixODBC.pm,v 1.52 2004/03/24 00:53:51 kiesling Exp $
 
 use strict;
 use warnings;
@@ -461,14 +461,14 @@ our @EXPORT_OK = qw($SQL_NULL_DATA $SQL_DATA_AT_EXEC $SQL_HANDLE_ENV
  &SQLForeignKeys &SQLPrimaryKeys &SQLProcedureColumns &SQLProcedures
  &SQLSpecialColumns &SQLStatistics &SQLTables &SQLTablePrivileges
  &SQLSetStmtOption &SQLError
- &dm_log_open &dm_log_close
+ &dm_log_open &dm_log_close 
 );
 
 # This allows declaration       use UnixODBC ':all';
 our %EXPORT_TAGS = ( 'all' => [@EXPORT_OK] );
 
 our @EXPORT = qw();
-our $VERSION = '0.25';
+our $VERSION = '0.30';
 
 sub AUTOLOAD {
     # This AUTOLOAD is used to 'autoload' constants from the constant()
@@ -2357,51 +2357,34 @@ Perl extension for unixODBC library API.
 
 =head2 ODBC Overview
 
-The Open Database Connectivity standard provides a DBMS
-server-independent application programming interface for client
-programs.  An application that is written using ODBC functions should,
-in theory, work equally well with any DBMS server that provides an
-ODBC API interface.
+The Open Database Connectivity Standard is an Application Programming
+Interface for DBMS servers and clients.  
 
 ODBC provides functions that connect to a DBMS server; set and get
 server and connection parameters; query the DBMS server for database
 information like data types, and table and column information; and
-prepare SQL queries, transactions, and retrieve results sets.
+prepare SQL queries, transactions, and retrieve result sets.
 
 ODBC uses one or more Data Source Names, or DSNs, to connect to
-databases.  DSNs contain information about the DBMS server-specific
-driver libraries, the hostname, authentication information, and 
-DBMS-specific parameters.  The unixODBC libraries provide the GUI
-utility B<ODBCConfig> and the text-mode B<odbcinst> utility to
-maintain driver and DSN definitions.  You can determine, for example, 
-which DBMS drivers are installed on the system with the Unix command:
-
-  shell> odbcinst -q -d
-
-You can get the names of the DSNs on the system with the Unix command: 
-
-  shell> odbcinst -q -s
-
-Refer to the section L<"Drivers and DSNs"> to find out how to
-configure ODBC DBMS drivers and DSNs.
+databases.  DSNs contain information about DBMS server-specific driver
+libraries, network connections, authentication information, and DBMS
+parameters.  Refer to UnixODBC::DriverConf(3) and the documentation
+for unixODBC itself.
 
 =head2 ODBC Data Access Clients
 
-ODBC client programs use data "handles" to maintain information about
-the system's ODBC environment, the connection to the DSN, and the
-DBMS query being performed.  ODBC calls these handles:
+ODBC client programs use data, "handles," to maintain information
+about the system's ODBC environment, the connection to the DSN, and
+the DBMS query being performed.  ODBC calls these handles:
 
   - Environment Handles
   - Connection Handles
   - Statement Handles
   - Descriptor Handles
 
-UnixODBC.pm does not yet provide full support for descriptor
-handle types.
+UnixODBC.pm does not provide support for descriptor handles.
 
-All operations between the client program and the DBMS server are
-performed using these handles and ODBC functions.  Client programs
-generally have the structure:
+Client programs generally have the structure:
 
   - Allocate an environment handle.
   - Perform configuration based on the ODBC environment.
@@ -2412,11 +2395,11 @@ generally have the structure:
   - Retrieve the results.
   - De-allocate the statement, connection, and environment handles.
 
-The following ODBC client program connects to a DSN named "Catalog,"
-sends the SQL query "select * from titles" to the DBMS server, and
+The following ODBC client program connects to a DSN named, "Catalog,"
+sends the SQL query: "select * from titles" to the DBMS server, and
 retrieves and prints the results.  After nearly every ODBC function
 call, it checks that the function executed successfully, and if not,
-prints the diagnostic record and exits.
+prints a diagnostic record and exits.
 
   use UnixODBC ':all';
 
@@ -2611,90 +2594,6 @@ prints the diagnostic record and exits.
   exit 0;
 
 
-=head2 Basic Drivers and DSNs
-
-
-On each host system, each ODBC-accessible DBMS server has an ODBC
-Driver defined for it.  Driver definitions are contained in a file
-named odbcinst.ini.  They are accessible using the utility programs
-ODBCConfig or odbcinst, as described above.
-
-If neither utility is present on the system, consult the person who
-provided the ODBC libraries, or compile and install the unixODBC
-source code distribution from the Internet sites listed below.
-
-Each ODBC accessible database must have a DSN defined for it.  DSN
-definitions are contained in a file named odbc.ini.  Each DSN must
-specify a DBMS Driver, a database name, and the host name, which is
-normally the local system, unless the data source is an ODBC bridge.
-ODBC can also use network proxies, like DBI::proxy or
-UnixODBC::BridgeServer, but these APIs are not part of the ODBC
-standard, and are not specified differently by DSNs.
-
-If you need to connect to data sources on remote systems, refer to
-the UnixODBC::BridgeServer manual page and the API described there.
-
-If necessary, you can edit odbcinst.ini or odbc.ini yourself, or
-create templates for Drivers and DSNs.  Often the files are located in
-/usr/local/etc, but they may also be in /etc, or some other location.
-Check the unixODBC distribution for the specific directory layout.
-You will need to know the configuration of the DBMS server and the
-ODBC library modules for the Driver definition, and the name of the
-database and login data at least for the DSN definition.
-
-Here is an odbcinst.ini entry for a MySQL-MyODBC Driver:
-
-  [MySQL 3.23.49]
-  Description   = MySQL-MyODBC Sample - Edit for your system.
-  Driver        = /usr/local/lib/libmyodbc3-3.51.02.so
-  Setup         = /usr/local/lib/libodbcmyS.so.1.0.0
-  FileUsage     = 1
-  CPTimeout     = 
-  CPReuse       = 
-
-Here is the odbc.ini entry for a DSN named "Contacts," which uses the
-MySQL driver.
-
-  [Contacts]
-  Description   = Names and Addresses Sample - Edit for your system.
-  Driver        = MySQL 3.23.49
-  Server        = localhost
-  Port          = 3396
-  Socket        = /tmp/mysql.sock
-  Database      = Contacts
-
-Here is another odbcinst.ini Driver definition, for PostgreSQL:
-
-  [PostgreSQL 7.x]
-  Description   = Postgresql 7.x Sample - Edit for your system
-  Driver        = /usr/local/lib/libodbcpsql.so.2.0.0
-  Setup         = /usr/local/lib/libodbcpsqlS.so.1.0.0
-  FileUsage     = 1
-  CPTimeout     = 
-  CPReuse       = 
-
-And here is the odbc.ini entry for a DSN that uses the PostgreSQL
-Driver:
-
-  [Postgresql]
-  Description           = Sample DSN - Edit for your system.
-  Driver                = PostgreSQL 7.x
-  Trace                 = No
-  TraceFile             = 
-  Database              = gutenberg
-  Servername            = localhost
-  Username              = postgres
-  Password              = postgres
-  Port                  = 5432
-  Protocol              = 6.4
-  ReadOnly              = No
-  RowVersioning         = No
-  ShowSystemTables      = No
-  ShowOidColumn         = No
-  FakeOidIndex          = No
-  ConnSettings          = 
-  Server                = localhost
-
 =head1 ODBC API
 
 
@@ -2724,7 +2623,7 @@ ODBC API functions can return the following status values:
 
 
 Specifies the direction of a row fetch for calls to functions like
-B<SQLFetchScroll>, B<SQLDataSources>, and B<SQLDrivers>.  The ODBC API
+L<SQLFetchScroll>, L<SQLDataSources>, and L<SQLDrivers>.  The ODBC API
 defines the following directions:
 
   - $SQL_FETCH_FIRST
@@ -2734,9 +2633,6 @@ defines the following directions:
   - $SQL_FETCH_ABSOLUTE
   - $SQL_FETCH_RELATIVE
   - $SQL_FETCH_BOOKMARK
-
-Refer to L<"SQLDrivers">, L<"SQL_FETCH_SCROLL">, and
-L<"SQLDataSources"> (below).
 
 =head2 Attributes
 
@@ -2749,10 +2645,10 @@ DBMS driver, and many are read-only.
 =head3 Environment Attributes
 
 
-Attributes used by L<"SQLSetEnvAttr"> and L<"SQLGetEnvAttr">,
+Attributes used by L<SQLSetEnvAttr> and L<SQLGetEnvAttr>,
 and their possible values.
 
-  - $SQL_ATTR_OUTPUT_NTS = I<true> | I<false>
+  - $SQL_ATTR_OUTPUT_NTS = true | false
 
   - $SQL_ATTR_ODBC_VERSION  = $SQL_OV_ODBC2 | $SQL_OV_ODBC3
 
@@ -2766,7 +2662,7 @@ and their possible values.
 =head3 Connect Attributes
 
 
-Attributes used by L<"SQLSetConnectAttr"> and L<"SQLGetConnectAttr">,
+Attributes used by L<SQLSetConnectAttr> and L<SQLGetConnectAttr>,
 and their possible values.  
 
   - $SQL_ATTR_TRACE = $SQL_OPT_TRACE_OFF | $SQL_OPT_TRACE_ON |
@@ -2792,21 +2688,21 @@ and their possible values.
 
   - $SQL_ATTR_CONNECTION_TIMEOUT = I<interval>
 
-  - $SQL_ATTR_METADATA_ID = I<id>
+  - $SQL_ATTR_METADATA_ID = id
 
-  - $SQL_ATTR_PACKET_SIZE = I<size>
+  - $SQL_ATTR_PACKET_SIZE = size
 
   - $SQL_ATTR_QUIET_MODE = $SQL_TRUE | $SQL_FALSE
 
   - $SQL_ATTR_TXN_ISOLATION = $SQL_TRUE | $SQL_FALSE
 
-  - $SQL_ATTR_CURRENT_CATALOG = I<catalog>
+  - $SQL_ATTR_CURRENT_CATALOG = catalog
 
-  - $SQL_ATTR_TRANSLATE_LIB = I<lib>
+  - $SQL_ATTR_TRANSLATE_LIB = lib
 
   - $SQL_ATTR_USE_BOOKMARKS = $SQL_TRUE | $SQL_FALSE
 
-Options recognized by L<"SQLSetConnectOption">, L<"SQLGetConnectOption">.
+Options recognized by L<SQLSetConnectOption>, L<SQLGetConnectOption>.
 
   - $SQL_ATTR_TRACE = $SQL_OPT_TRACE_OFF | $SQL_OPT_TRACE_ON |
       $SQL_OPT_TRACE_DEFAULT
@@ -2829,17 +2725,17 @@ Options recognized by L<"SQLSetConnectOption">, L<"SQLGetConnectOption">.
   - $SQL_ATTR_ODBC_CURSORS = $SQL_CUR_USE_IF_NEEDED | $SQL_CUR_USE_ODBC |
       $SQL_CUR_USE_DRIVER | $SQL_CUR_DEFAULT
 
-  - $SQL_ATTR_CURRENT_CATALOG = I<catalog_name>
+  - $SQL_ATTR_CURRENT_CATALOG = catalog_name
     (Set with SQLSetConnectAttr)    
 
-  - $SQL_ATTR_TRANSLATE_LIB = I<lib>
+  - $SQL_ATTR_TRANSLATE_LIB = lib
     (Set with SQLSetConnectAttr)    
 
 =head3 Statement Attributes
 
 
-Attributes used by L<"SQLSetStmtAttr">, L<"SQLGetStmtAttr">,
-L<"SQLSetStmtOption">, and L<"SQLGetStmtOption">.
+Attributes used by L<SQLSetStmtAttr>, L<SQLGetStmtAttr>,
+L<SQLSetStmtOption>, and L<SQLGetStmtOption>.
 
   - $SQL_ATTR_ASYNC_ENABLE = $SQL_ASYNC_ENABLE_OFF | $SQL_ASYNC_ENABLE_ON |
       $SQL_ASYNC_ENABLE_DEFAULT
@@ -2855,24 +2751,24 @@ L<"SQLSetStmtOption">, and L<"SQLGetStmtOption">.
 
   - $SQL_ATTR_ENABLE_AUTO_IPD = $SQL_TRUE | $SQL_FALSE
 
-  - $SQL_ATTR_FETCH_BOOKMARK_PTR = I<ptr>
+  - $SQL_ATTR_FETCH_BOOKMARK_PTR = ptr
 
-  - $SQL_ATTR_KEYSET_SIZE = $SQL_ATTR_KEYSET_SIZE_DEFAULT | I<size_ptr>
+  - $SQL_ATTR_KEYSET_SIZE = $SQL_ATTR_KEYSET_SIZE_DEFAULT | size_ptr
 
-  - $SQL_ATTR_MAX_LENGTH = I<numeric_value>
+  - $SQL_ATTR_MAX_LENGTH = numeric_value
 
-  - $SQL_ATTR_MAX_ROWS = $SQL_MAX_ROWS_DEFAULT | I<numeric_value>
+  - $SQL_ATTR_MAX_ROWS = $SQL_MAX_ROWS_DEFAULT | numeric_value
 
   - $SQL_ATTR_NOSCAN = $SQL_NOSCAN_ON | $SQL_NOSCAN_OFF | 
       $SQL_NOSCAN_DEFAULT
 
   - $SQL_ATTR_QUERY_TIMEOUT = $SQL_QUERY_TIMEOUT_DEFAULT | 
-      I<numeric_value>
+      numeric_value
 
   - $SQL_ATTR_RETRIEVE_DATA = $SQL_RD_ON | $SQL_RD_OFF |
       $SQL_RD_DEFAULT
 
-  - $SQL_ATTR_ROW_NUMBER = I<numeric_calue>
+  - $SQL_ATTR_ROW_NUMBER = numeric_calue
 
 =head2 UnixODBC Functions
 
@@ -3401,7 +3297,6 @@ provides the following options.
   $r = SQLFreeStmt ($sth, $SQL_CLOSE);
 
   
-
 =head2 SQLGetConnectAttr (I<connection_handle>, I<attribute>, I<buffer_for_returned_data>, I<buffer_length>, I<length_of_returned_data>)
 
 
@@ -3565,7 +3460,7 @@ how to cope with different data types and attribute masks.
 
   #!/usr/bin/perl -w
 
-  # $Id: UnixODBC.pm,v 1.40 2004/03/06 22:12:36 kiesling Exp $
+  # $Id: UnixODBC.pm,v 1.52 2004/03/24 00:53:51 kiesling Exp $
   $VERSION=1.0;
 
   use UnixODBC qw(:all);
@@ -4330,7 +4225,7 @@ Refer to the @EXPORT_OK array in UnixODBC.pm.
 
 =head1 VERSION INFORMATION AND CREDITS
 
-Version 0.01
+Version 0.30
 
 Copyright © 2002 - 2004 Robert Kiesling, rkies@cpan.org.
 
@@ -4339,12 +4234,8 @@ for details.
 
 =head1 SEE ALSO
 
-perl(1), tkdm(1), alltypes(1), apifuncs(1), colattributes(1),
-connectinfo(1), datasources(1), driverinfo(1), sqltables(1),
-odbcbridge(1), UnixODBC::BridgeServer(3)
-
-The unixODBC programmer and reference manuals at:
-http://www.unixodbc.org/ and the ODBC reference library at:
-http://msdn.microsoft.com/.
+perl(1), UnixODBC::DriverConf(3), UnixODBC::BridgeServer(3), tkdm(1),
+alltypes(1), apifuncs(1), colattributes(1), connectinfo(1),
+datasources(1), driverinfo(1), sqltables(1), odbcbridge(1)
 
 =cut
