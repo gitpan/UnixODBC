@@ -12,7 +12,6 @@ my $dsnquery;
 $dsnquery = $ENV{'REQUEST_URI'};
 
 my $peerport = 9999;
-my $querytext;
 
 my ($host, $dsn, $table, $user, $password, $querytext, @globalfields, @globalparams);
 
@@ -52,9 +51,25 @@ if ($dsnquery =~ /hostdsntable/) { # From the dsn frame.
 	 /dsn=(.*?)&table=(.*?)&host=(.*?)&username=(.*?)&password=(.*?)&/);
     $dsn =~ s/\+/ /g;
     @globalfields = get_fields ($user, $password, $host, $dsn, $table);
+
+    # translate original query from CGI param.
     ($querytext) = 
 	($dsnquery =~ /querytext=(.*?)&/);
     $querytext =~ s/\+/ /g;
+    local ($sp, $j, $hexcode, $c);
+    $sp = '';
+    for ($j = 0; $j < length ($querytext); $j++) {
+	if (substr ($querytext, $j, 1) eq '%') {
+	    $hexcode = substr ($querytext, $j+1, 2);
+	    $c = hex_to_char ($hexcode);
+	    # if $c translates to actual '%', skip over it.
+	    $j += 2;
+	    $sp .= $c;
+	} else {
+	    $sp .= substr ($querytext, $j, 1);
+	}
+    }
+    $querytext = $sp;
 }
 
 my $loginform = <<ENDOFLOGINFORM;
@@ -208,8 +223,7 @@ sub param {  # Return array of params.
 	    $sp = '';
 	    for ($j = 0; $j < length ($p1[$i]); $j++) {
 		if (substr ($p1[$i], $j, 1) eq '%') {
-		    $c = substr ($p1[$i], $j, 3);
-		    $c = substr ($c, 1);
+		    $c = substr ($p1[$i], $j+1, 2);
 		    $sp .= hex_to_char ($c);
 		    $j += 2;
 		} else {
@@ -563,9 +577,13 @@ sub odbc_diag_message {
     return "[$func][$unixodbcfunc]$etext";
 }
 
+# Interpreting line endings as spaces is a kludgy way to 
+# prevent the SQL Parser from carping over \r and \n in 
+# the query.
 sub hex_to_char {
     my $hexdigit = $_[0];
-    my $hexchars = {  '20' => ' ', '21' => '!', '22' => '"', '23' => '#', 
+    my $hexchars = {  '0A' => ' ', '0D' => ' ', 
+	          '20' => ' ', '21' => '!', '22' => '"', '23' => '#', 
 		  '24' => '$', '25' => '%', '26' => '&', '27' => '\'',
                   '28' => '(', '29' => ')', '2A' => '*', '2B' => '+', 
                   '2C' => ',', '2D' => '-', '2E' => '.', '2F' => '/', 

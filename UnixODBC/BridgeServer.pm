@@ -5,7 +5,7 @@
 
 use lib qw(blib/arch blib/lib);
 
-our $VERSION = '0.19';
+our $VERSION = '0.20';
 
 $| = 1;
 

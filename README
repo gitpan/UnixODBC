@@ -105,6 +105,12 @@ ODBC systems.  Refer to the file "INSTALL" in the tkdm subdirectory.
   for the test data.  Refer to the file dbms/README for notes about
   MySQL and PostgreSQL DBMS's.
 
+  Running test.pl is likely to result in at least a few errors.
+  The script is designed to test the subset of ODBC API functions
+  that UnixODBC.pm implements as exhaustively as possible, and as
+  many different DBMS drivers as possible (currently the MyODBC and
+  Easysoft PostgreSQL drivers).
+
 
 - Installing and configuring the bridge server.
 

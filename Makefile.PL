@@ -5,7 +5,7 @@ use ExtUtils::MakeMaker;
 WriteMakefile(
     'NAME'		=> 'UnixODBC',
     'VERSION_FROM'      => 'UnixODBC.pm',
-    'LIBS'		=> ['-lodbc'],
+    'LIBS'		=> ['-L/usr/local/lib -L/usr/lib -lodbc'],
 );
 
 
