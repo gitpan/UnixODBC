@@ -1,6 +1,6 @@
 package UnixODBC;
 
-#$Id: UnixODBC.pm,v 1.39 2004/01/25 02:35:42 kiesling Exp $
+#$Id: UnixODBC.pm,v 1.40 2004/03/06 22:12:36 kiesling Exp $
 
 use strict;
 use warnings;
@@ -3565,7 +3565,7 @@ how to cope with different data types and attribute masks.
 
   #!/usr/bin/perl -w
 
-  # $Id: UnixODBC.pm,v 1.39 2004/01/25 02:35:42 kiesling Exp $
+  # $Id: UnixODBC.pm,v 1.40 2004/03/06 22:12:36 kiesling Exp $
   $VERSION=1.0;
 
   use UnixODBC qw(:all);
@@ -4328,9 +4328,14 @@ Close a log file opened with dm_log_open();
 
 Refer to the @EXPORT_OK array in UnixODBC.pm.
 
-=head1 AUTHOR
+=head1 VERSION INFORMATION AND CREDITS
 
-Robert Allan Kiesling, rkies@cpan.org.
+Version 0.01
+
+Copyright © 2002 - 2004 Robert Kiesling, rkies@cpan.org.
+
+Licensed under the same terms as Perl.  Refer to the file, "Artistic,"
+for details.
 
 =head1 SEE ALSO
 
@@ -4339,7 +4344,7 @@ connectinfo(1), datasources(1), driverinfo(1), sqltables(1),
 odbcbridge(1), UnixODBC::BridgeServer(3)
 
 The unixODBC programmer and reference manuals at:
-http://www.unixodbc.org/ and the ODBC reference library at
+http://www.unixodbc.org/ and the ODBC reference library at:
 http://msdn.microsoft.com/.
 
 =cut

@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-#$Id: tkdm,v 1.18 2004/02/05 00:40:54 kiesling Exp $
+#$Id: tkdm,v 1.19 2004/03/06 21:52:14 kiesling Exp $
 
 $VERSION='0.19';
 @EXPORT_OK=(qw/$VERSION/);
@@ -1947,14 +1947,14 @@ the, "group," and, "other," permissions from the file, with:
 
 =head1 VERSION INFORMATION AND CREDITS
 
-$Id$
+$Id: tkdm,v 1.19 2004/03/06 21:52:14 kiesling Exp $
 
-Tkdm is part of the UnixODBC.pm package.  
+Tkdm is part of the UnixODBC.  
 
-Written by: Robert Kiesling, rkies@cpan.org.
+Copyright © 2002-2004 Robert Kiesling, rkies@cpan.org.
 
-Licensed under the same terms as Perl.  Please refer to the
-file, "Artistic," for details.
+Licensed under the same terms as Perl.  Refer to the file, "Artistic,"
+for details.
 
 =head1 SEE ALSO
 

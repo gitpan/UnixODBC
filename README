@@ -331,6 +331,7 @@ server installation notes.
       - connectinfo    Connection attributes.
       - datasources    DSN's on the local system.
       - driverinfo     Drivers on the local system.
+      - rssoutput      Output result set as RSS RDF file.
 
     Clients for remote DSN queries are in the, "bridge,"
     subdirectory. 
@@ -429,4 +430,4 @@ server installation notes.
   the same terms as Perl.  Refer to the file, "Artistic," for the 
   details.
 
-  $Id: README,v 1.12 2004/02/08 02:02:54 kiesling Exp $
+  $Id: README,v 1.13 2004/03/06 22:06:56 kiesling Exp $
