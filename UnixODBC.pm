@@ -1,6 +1,6 @@
 package UnixODBC;
 
-#$Id: UnixODBC.pm,v 1.52 2004/03/24 00:53:51 kiesling Exp $
+#$Id: UnixODBC.pm,v 1.54 2004/04/18 01:41:49 kiesling Exp $
 
 use strict;
 use warnings;
@@ -2734,8 +2734,7 @@ Options recognized by L<SQLSetConnectOption>, L<SQLGetConnectOption>.
 =head3 Statement Attributes
 
 
-Attributes used by L<SQLSetStmtAttr>, L<SQLGetStmtAttr>,
-L<SQLSetStmtOption>, and L<SQLGetStmtOption>.
+Attributes used by L<SQLSetStmtAttr> and L<SQLGetStmtAttr>.
 
   - $SQL_ATTR_ASYNC_ENABLE = $SQL_ASYNC_ENABLE_OFF | $SQL_ASYNC_ENABLE_ON |
       $SQL_ASYNC_ENABLE_DEFAULT
@@ -3460,7 +3459,7 @@ how to cope with different data types and attribute masks.
 
   #!/usr/bin/perl -w
 
-  # $Id: UnixODBC.pm,v 1.52 2004/03/24 00:53:51 kiesling Exp $
+  # $Id: UnixODBC.pm,v 1.54 2004/04/18 01:41:49 kiesling Exp $
   $VERSION=1.0;
 
   use UnixODBC qw(:all);
@@ -3973,6 +3972,10 @@ For a list of attributes, see L<"SQLGetStmtAttr">, above.
   $r = SQLSetStmtAttr ($sth, $SQL_ATTR_CURSOR_TYPE, "$SQL_CURSOR_TYPE_DEFAULT",
                        length ("$SQL_CURSOR_TYPE_DEFAULT");
 
+=head2 SQLSetStmtOption (I<statement_handle>, I<option>, I<value>)
+
+See L<"SQLSetStmtAttr">.
+
 =head2 SQLSpecialColumns (I<statement_handle>, I<identifier_type>, I<catalog_name>, I<catalog_name_length>, I<schema_name>, I<schema_name_length>, I<table_name>, I<table_name_length>, I<scope>, I<nullable>)
 
 =head2 SQLStatistics (I<statement_handle>, I<catalog_name>, I<catalog_name_length>, I<schema_name>, I<schema_name_length>, I<table_name>, I<table_name_length>, I<unique>, I<reserved>)
@@ -4219,13 +4222,13 @@ Open a log file to record driver manager function calls.
 
 Close a log file opened with dm_log_open();
 
-=head2 EXPORT
+=head2 EXPORTS
 
 Refer to the @EXPORT_OK array in UnixODBC.pm.
 
 =head1 VERSION INFORMATION AND CREDITS
 
-Version 0.30
+Version 0.32
 
 Copyright © 2002 - 2004 Robert Kiesling, rkies@cpan.org.
 

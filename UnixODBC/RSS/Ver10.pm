@@ -1,15 +1,21 @@
 package UnixODBC::RSS::Ver10;
 
-# $Id: Ver10.pm,v 1.11 2004/03/12 05:29:24 kiesling Exp $
+# $Id: Ver10.pm,v 1.12 2004/04/16 17:07:25 kiesling Exp $
 
-my $VERSION=0.02;
+my $VERSION=0.03;
 
 my %rsstags = ('open' => "<rdf:RDF\n" .
 	       "xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n" .
 	       'xmlns="http://purl.org/rss/1.0/">', 
+	       'open_sy' => "<rdf:RDF\n" .
+	       "xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n" .
+               "xmlns:sy=\"http://purl.org/rss/1.0/modules/syndication/\"\n" .
+	       'xmlns="http://purl.org/rss/1.0/">', 
 	       'close' => '</rdf:RDF>');
 
 sub rssopen { return $rsstags{'open'}; }
+
+sub rssopen_sy { return $rsstags{'open_sy'}; }
 
 sub rssclose { return $rsstags{'close'}; }
 
@@ -48,6 +54,15 @@ my $itemtags = {open => '<item>',
 
 sub itemtagsref { return $itemtags; }
 
+my $syntags = {'updatePeriodopen' => '<sy:updatePeriod>',
+		'updatePeriodclose' => '</sy:updatePeriod>',
+		'updateFrequencyopen' => '<sy:updateFrequency>',
+		'updateFrequencyclose' => '</sy:updateFrequency>',
+		'updateBaseopen' => '<sy:updateBase>',
+		'updateBaseclose' => '</sy:updateBase>'};
+
+sub syntagsref { return $syntags; }
+
 sub __rdf_about {
     my $tag = $_[0];
     my $res = $_[1];
@@ -75,9 +90,10 @@ sub channel_as_str {
     my $s = '';
     my $c = $self -> channeltagsref;
     my $i = $self -> itemtagsref;
+    my $y = $self -> syntagsref;
 
     if (! defined ($self -> {columnheadings})) {
-	warn "warning: column headings not defined.\n";
+	warn "column headings not defined.\n";
     }
 
     my $colheadref = $self -> {columnheadings};
@@ -89,6 +105,14 @@ sub channel_as_str {
 	$b = __required_entities ($self -> {channel}{$t});
 	$s .= "    " . 
 	    $c->{"${t}open"}.$b.$c -> {"${t}close"}."\n";
+    }
+
+    if (exists $self -> {syn}) {
+	foreach my $t (qw/updatePeriod updateFrequency updateBase/) {
+	    $b = __required_entities ($self -> {syn}{$t});
+	    $s .= "    " . 
+		$y->{"${t}open"}.$b.$y -> {"${t}close"}."\n";
+	}
     }
 
     if (defined ($self -> {channelimage})) {
@@ -125,11 +149,11 @@ sub image_as_str {
     my $im = $self -> imagetagsref;
     my $s = '';
 
-    $c1 = __rdf_about ($im -> {open}, $self -> {channelimage}{url});
+    my $c1 = __rdf_about ($im -> {open}, $self -> {channelimage}{url});
     $s = "  " . $c1 . "\n";
 
     foreach my $t (qw/title url/) {
-	$b = __required_entities ($self -> {channelimage}{$t});
+	my $b = __required_entities ($self -> {channelimage}{$t});
 	$s .= "    " . 
 	    $im->{"${t}open"}.$b.$im -> {"${t}close"}."\n";
     }
@@ -157,7 +181,7 @@ sub items_as_str {
 	    foreach my $ic (keys %{$self -> {itemcolumns}} ) {
 		if ($$colheadref[$cidx] eq $ic) {
 		    local $s1 = $self -> {itemcolumns}{$ic};
-		    $b = __required_entities (${$rref}[$cidx]);
+		    my $b = __required_entities (${$rref}[$cidx]);
 		    $s .=  "        ". $i -> {"${s1}open"} . $b .
                       $i -> {"${s1}close"} . "\n";
 		}

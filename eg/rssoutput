@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 
-# $Id: rssoutput,v 1.9 2004/03/13 15:45:38 kiesling Exp $
+# $Id: rssoutput,v 1.11 2004/04/16 22:35:31 kiesling Exp $
 
-$VERSION=0.2;
+$VERSION=0.3;
 
 use UnixODBC qw(:all);
 use UnixODBC::RSS;
@@ -23,16 +23,14 @@ my $rss = new UnixODBC::RSS;
 my $r;
 
 # Data Buffers and Lengths
-
 my $buf;
-my $buflen = 255;   # Maximum length of parameter data.
-my $rlen;           # Actual length of returned data.
+my $buflen = $SQL_MAX_MESSAGE_LENGTH;   # Maximum length of parameter data.
+my $rlen;                               # Actual length of returned data.
 
 
 ## 
-## These are filled in by GetOptions.
+## Filled in by GetOptions.
 ##
-
 my $DSN = '';
 my $UserName = '';
 my $PassWord = '';
@@ -41,11 +39,12 @@ my $ChannelFile = '';
 my $ContentFile = '';
 my $ImageFile = '';
 my $TextInputFile = '';
+my $SynFile = '';
 
 # Help Text
 
 my $usage=<<EOH;
-Usage: rssoutput [--help] | [--user=<username>] [--password=<password>] --dsn=<DSN> --query=<sqlquery> --channel=<channel_info_file> --content=<content_info_file> [--image=<image_resource_file>] [--textinput=<textinput_resource_file>]
+Usage: rssoutput [--help] | [--user=<username>] [--password=<password>] --dsn=<DSN> --query=<sqlquery> --channel=<channel_info_file> --content=<content_info_file> [--image=<image_resource_file>] [--syn=<syn_resource_file>] [--textinput=<textinput_resource_file>]
   --help       Print this help and exit.
   --dsn        Data source name.
   --user       DBMS login name.
@@ -54,6 +53,7 @@ Usage: rssoutput [--help] | [--user=<username>] [--password=<password>] --dsn=<D
   --channel    File containing channel information.
   --content    File containing content information.
   --image      File containing channel image resource information.
+  --syn        File containing Syn resources.
   --textinput  File containing channel textinput resouce information.
 EOH
 
@@ -67,6 +67,7 @@ GetOptions ('help' => \$help,
 	    'channel=s' => \$ChannelFile,
 	    'content=s' => \$ContentFile,
 	    'imagefile=s' => \$ImageFile,
+	    'syn=s' => \$SynFile,
 	    'textinput=s' => \$TextInputFile);
   
 
@@ -81,7 +82,7 @@ if ($help ||
 
 # Get resource descriptions
 
-my ($channeldesc, $contentdesc, $imagedesc, $textinputdesc);
+my ($channeldesc, $contentdesc, $imagedesc, $textinputdesc, $syndesc);
 
 if (length ($ChannelFile)) {
     if (-f $ChannelFile) {
@@ -121,6 +122,16 @@ if (length ($TextInputFile)) {
 	exit 1;
     }
     $rss -> TextInput ($textinputdesc);
+}
+
+if (length ($SynFile)) {
+    if (-f $SynFile) {
+	$syndesc = do $SynFile;
+	$rss -> Syn ($syndesc);
+    } else {
+	print "rssoutput: Syn resource $SynFile not found. \n";
+	exit 1;
+    }
 }
 
 # Fields defined in SQLTables result set.
@@ -193,10 +204,10 @@ if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
     exit 1;
 }
 
-if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
-    getdiagrec ($SQL_HANDLE_STMT, $sth);
-    exit 1;
-}
+#if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+#    getdiagrec ($SQL_HANDLE_STMT, $sth);
+#    exit 1;
+#}
 
 my ($col, $buf, $rfetch, $rget, $colarrayref, @rowarray, $rlen, $n);
 
@@ -308,7 +319,7 @@ rssoutput - Format UnixODBC result set as RSS version 1.0 RDF file.
   rssoutput [--help] | [--user=<username>] [--password=<password>] 
   --dsn=<DSN> --query=<SQLQuery> --channel=<channel_info_file>
   --content=<content_info_file>   [--image=<image_resource_file>]
-  [--textinput=<texintput_resource_file>]
+  [--textinput=<texintput_resource_file>] [--syn=<syn_resource_file>]
 
 
 =head1 OPTIONS
@@ -336,7 +347,7 @@ Valid SQL query.
 =head2 --channel
 
 A file that contains information about the RSS channel, as an
-anonymous hash.  A channel description might look like this.
+anonymous hash.  A sample channel description is shown here.
 
   {
     'title' => 'Sample Feed',
@@ -369,6 +380,15 @@ argument's parameter should have the form:
 	'url' => 'http://owl/icons/ball.red.gif'
   }
 
+=head2 --syn
+
+Optional Syn resource description in the file given as a parameter.
+
+ {'updatePeriod' => 'daily',
+  'updateFrequency' => 1,
+  'updateBase' => '2000-01-01T12:00+00.00'
+ }
+
 =head2 --textinput
 
 Channel <textinput> resource information in the file given as a parameter.
@@ -377,13 +397,13 @@ Channel <textinput> resource information in the file given as a parameter.
     'title' => 'Test TextInput',
     'description' => 'This is a test text input',
     'name' => 'Test Input',
-    'link' => 'http://owl'
+    'link' => 'http://hostname/textinput.html'
   }
 
 
 =head1 VERSION INFORMATION AND CREDITS
 
-Version 0.2
+Version 0.3
 
 Copyright © 2004 Robert Kiesling, rkies@cpan.org.
 

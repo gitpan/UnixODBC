@@ -1,8 +1,8 @@
 package UnixODBC::RSS;
 
-# $Id: RSS.pm,v 1.19 2004/03/23 19:40:08 kiesling Exp $
+# $Id: RSS.pm,v 1.22 2004/04/18 01:51:13 kiesling Exp $
 
-our $VERSION=0.02;
+our $VERSION=0.03;
 
 our @ISA = qw(Exporter);
 
@@ -53,6 +53,11 @@ sub ColumnHeadings {
     $self -> {columnheadings} = $_[0];
 }
 
+sub Syn {
+    my $self = shift;
+    $self -> {syn} = $_[0];
+}
+
 sub Output {
     my $self = shift;
     my $resultref = $_[0];
@@ -60,9 +65,13 @@ sub Output {
     use UnixODBC::RSS::Ver10;
     push @ISA, (UnixODBC::RSS::Ver10);
 
-    print $fh $preamble .
-	$self -> rssopen . "\n" .
-	$self -> channel_as_str ($resultref) ; 
+    print $fh $preamble ;
+    if (exists $self -> {syn}) {
+	print $fh $self -> rssopen_sy . "\n";
+    } else {
+	print $fh $self -> rssopen . "\n";
+    }
+    print $fh $self -> channel_as_str ($resultref) ; 
     print $fh $self -> image_as_str if ($self -> {channelimage});
     print $fh $self -> items_as_str ($resultref);
     print $fh $self -> textinput_as_str () if ($self -> {textinput});
@@ -76,7 +85,7 @@ UnixODBC::RSS.pm - Create RSS output from a UnixODBC query.
 
 =head1 SYNOPSIS
 
-    use UnixODBC;
+    use UnixODBC ':all';
     use UnixODBC::RSS;
 
     my $rdf = new UnixODBC::RSS;  
@@ -96,6 +105,11 @@ UnixODBC::RSS.pm - Create RSS output from a UnixODBC query.
 
     $rdf -> ColumnHeadings ($array_ref);
 
+    $rdf -> Syn ({'updatePeriod' => 'hourly',
+                  'updateFrequency' => 1,
+                  'updateBase' => '2000-01-01T12:00+00.00'});
+
+
     $rdf -> ItemColumns ({'column_name_of_title_content' => 'title',
 			 'column_name_of_description_content' => 'description',
 			 'column_name_of_name_content' => 'name',
@@ -106,22 +120,26 @@ UnixODBC::RSS.pm - Create RSS output from a UnixODBC query.
 
 =head1 DESCRIPTION
 
-UnixODBC::RSS.pm formats query results as a RSS version 1.0 RDF file.
-The result set array that is the Output () method's first argument is
-an array of row array references, as described below.
+UnixODBC::RSS.pm formats query results as RSS RDF output.  
 
 The Channel() method's argument is an anonymous hash or hash reference
 that provides RSS channel identification for <channel> and member tags:
 <title>, <description>, and <url>.  
 
 ChannelImage() optionally provides information about an image
-resource, if any.  An <image><link> member content is identical to the
+resource.  An <image><link> member content is identical to the
 <channel><link> member content.
 
 The method, ItemColumns(), takes as its argument an anonymous hash or
-hash reference. Each key-value pair describes the result set column
-that provides content for an <item> member: <title>, <name>,
-<description>, or <link>.
+hash reference. Each key-value describes the result set column that
+provides content for an <item> member: <title>, <name>, <description>,
+or <link>.
+
+Syn() optionally adds syndication extensions to the output.  The
+content of "updatePeriod" may be: "hourly," "daily," "weekly,"
+"monthly," or "yearly."  The positive integer value of,
+"updateFrequency," is the number of, "updatePeriod," time units between
+updates.  The content of, "updateBase," is a W3C-format date-time stamp.
 
 ColumnHeadings() saves a query's column headings as an array reference.
 Refer to the example below.
@@ -179,7 +197,7 @@ Creating a RSS RDF file follows approximately these steps.
 
 =head1 VERSION INFORMATION AND CREDITS
 
-Version 0.02
+Version 0.03
 
 Copyright © 2004 Robert Kiesling, rkies@cpan.org.
 

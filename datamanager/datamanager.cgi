@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# $Id: datamanager.cgi,v 1.4 2004/03/13 23:25:07 kiesling Exp $
+# $Id: datamanager.cgi,v 1.5 2004/04/16 23:00:46 kiesling Exp $
 
 use UnixODBC (':all');
 use UnixODBC::BridgeServer;
@@ -150,7 +150,6 @@ foreach my $d (@dsns) {
         print qq| target="main">\n|;
         print qq|<img src="/icons/dsn.gif" border="0" |;
         print qq| align="middle" hspace="10">$d2</a>\n|;
-        print qq| hspace="10">$d2</a>\n|;
         print qq|</div>\n|;
 	
 	if ( ($#{$d -> {tablearrayref}} != -1 ) &&
@@ -310,6 +309,14 @@ sub readlogins {
 	$peers{$host} = $userpwd;
     }
     close LOGIN;
+
+    my $i = 0;
+    $i++ foreach (keys %peers);
+    if (!$i) {
+	perl_errorpage ("No hosts in $loginfile.");
+	print STDERR "No hosts in $loginfile: $!\n";
+	exit 0;
+    }
 }
 
 sub peer_client_login {
