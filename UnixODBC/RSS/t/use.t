@@ -3,8 +3,7 @@ use strict;
 use Test;
 BEGIN { plan tests => 1 }
 
-use UnixODBC::BridgeServer ok(1);
-use UnixODBC::RSS ok(2);
+use UnixODBC::RSS::Ver10 ok(1);
 exit;
 __END__
 

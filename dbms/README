@@ -1,7 +1,7 @@
 DBMS Installation Notes for UnixODBC.
 
-["UnixODBC" refers to the Perl module, and "unixODBC" refers to the
-unixODBC ODBC run-time libraries.]
+[Note - "UnixODBC," refers to the Perl module, and, "unixODBC," 
+refers to the unixODBC ODBC driver manager libraries.]
 
 1. Notes about various DBMS's.
    - MySQL
@@ -11,7 +11,7 @@ unixODBC ODBC run-time libraries.]
 
 1. DBMS Installation Notes
 
-UnixODBC has been tested with unixODBC versions 2.2.0 - 2.2.2 
+UnixODBC has been tested with unixODBC versions 2.2.0 - 2.2.6 
 from EasySoft, with the following platform configurations:
 
     Operating System          DBMS
@@ -59,7 +59,7 @@ libpsqlodbc.so.0.27.
 
 PostgreSQL's internal processes reopen one socket for efficiency.
 This can cause Unix to signal an pipe error if the socket overflows,
-and causes Perl scripts to terminate with "Broken Pipe" errors.  To 
+and causes Perl scripts to terminate with, "Broken Pipe," errors.  To 
 catch the socket signals, include a signal handler, like this one, in 
 Perl script:
 

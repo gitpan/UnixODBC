@@ -1,4 +1,6 @@
-#!/usr/local/bin/perl
+#!/usr/bin/perl
+
+# $Id: gutenberg.cgi,v 1.2 2004/03/13 23:34:53 kiesling Exp $
 
 use CGI;
 use UnixODBC (':all');

@@ -1,6 +1,6 @@
-#!/usr/local/bin/perl
+#!/usr/bin/perl
 
-# $Id: datamanager.cgi,v 1.3 2004/02/07 16:52:18 kiesling Exp $
+# $Id: datamanager.cgi,v 1.4 2004/03/13 23:25:07 kiesling Exp $
 
 use UnixODBC (':all');
 use UnixODBC::BridgeServer;

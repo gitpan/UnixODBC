@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 
-# $Id: rssoutput,v 1.4 2004/03/06 22:05:40 kiesling Exp $
+# $Id: rssoutput,v 1.9 2004/03/13 15:45:38 kiesling Exp $
 
-$VERSION=0.1;
+$VERSION=0.2;
 
 use UnixODBC qw(:all);
 use UnixODBC::RSS;
@@ -39,11 +39,13 @@ my $PassWord = '';
 my $Query='';
 my $ChannelFile = '';
 my $ContentFile = '';
+my $ImageFile = '';
+my $TextInputFile = '';
 
 # Help Text
 
 my $usage=<<EOH;
-Usage: sqltables [--help] | [--user=<username>] [--password=<password>] --dsn=<DSN> --query=<sqlquery> --channel=<channel_info_file> --content=<content_info_file>
+Usage: rssoutput [--help] | [--user=<username>] [--password=<password>] --dsn=<DSN> --query=<sqlquery> --channel=<channel_info_file> --content=<content_info_file> [--image=<image_resource_file>] [--textinput=<textinput_resource_file>]
   --help       Print this help and exit.
   --dsn        Data source name.
   --user       DBMS login name.
@@ -51,6 +53,8 @@ Usage: sqltables [--help] | [--user=<username>] [--password=<password>] --dsn=<D
   --query      SQL query.
   --channel    File containing channel information.
   --content    File containing content information.
+  --image      File containing channel image resource information.
+  --textinput  File containing channel textinput resouce information.
 EOH
 
 # Get the DSN and login data from the command line.
@@ -61,42 +65,63 @@ GetOptions ('help' => \$help,
 	    'password=s' => \$PassWord,
             'query=s' => \$Query,
 	    'channel=s' => \$ChannelFile,
-	    'content=s' => \$ContentFile);
+	    'content=s' => \$ContentFile,
+	    'imagefile=s' => \$ImageFile,
+	    'textinput=s' => \$TextInputFile);
+  
 
 # If necessary print the help message and exit.
 
 if ($help || 
     (! length ($DSN) || ! length ($Query) || ! length ($ChannelFile) || 
      ! length ($ContentFile))){
-    print $usage;
+    print STDERR $usage;
     exit 0;
 }
 
-# Get channel description
+# Get resource descriptions
 
-my $channeldesc;
+my ($channeldesc, $contentdesc, $imagedesc, $textinputdesc);
 
-if (-f $ChannelFile) {
-    $channeldesc = do $ChannelFile;
-} else {
-    print "rssoutput: channel description $ChannelFile: not found. \n";
-    exit 1;
+if (length ($ChannelFile)) {
+    if (-f $ChannelFile) {
+	$channeldesc = do $ChannelFile;
+    } else {
+	print "rssoutput: channel description $ChannelFile: not found. \n";
+	exit 1;
+    }
+    $rss -> Channel ($channeldesc);
 }
 
-$rss -> Channel ($channeldesc);
-
-# Get content columns
-
-my $contentdesc;
-
-if (-f $ContentFile) {
-    $contentdesc = do $ContentFile;
-} else {
-    print "rssoutput: Content description $ContentFile: not found. \n";
-    exit 1;
+if (length ($ContentFile)) {
+    if (-f $ContentFile) {
+	$contentdesc = do $ContentFile;
+    } else {
+	print "rssoutput: Content description $ContentFile: not found. \n";
+	exit 1;
+    }
+    $rss -> ItemColumns ($contentdesc);
 }
 
-$rss -> ItemColumns ($contentdesc);
+if (length ($ImageFile)) {
+    if (-f $ImageFile) {
+	$imagedesc = do $ImageFile;
+    } else {
+	print "rssoutput: Image description $ImageFile: not found. \n";
+	exit 1;
+    }
+    $rss -> ChannelImage ($imagedesc);
+}
+
+if (length ($TextInputFile)) {
+    if (-f $TextInputFile) {
+	$textinputdesc = do $TextInputFile;
+    } else {
+	print "rssoutput: TextInput description $TextInputFile: not found. \n";
+	exit 1;
+    }
+    $rss -> TextInput ($textinputdesc);
+}
 
 # Fields defined in SQLTables result set.
 
@@ -189,7 +214,7 @@ for ($col = 1; $col <= $ncols; $col++) {
     $$colheadref[$col - 1] = $buf;
 }
 
-push @rowarray, ($colheadref);
+$rss -> ColumnHeadings ($colheadref);
 
 # Get column data
 
@@ -212,8 +237,6 @@ while (1) {
     push @rowarray, ($colarrayref);
 }
 
-sub new_array_ref { my @a; return \@a; }
-
 $rss -> Output (\@rowarray, *STDOUT);
 
 if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
@@ -227,28 +250,28 @@ if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
 $r = SQLFreeHandle ($SQL_HANDLE_STMT, $sth);
 
 if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
-    &getdiagrec ($SQL_HANDLE_STMT, $sth);
+    getdiagrec ($SQL_HANDLE_STMT, $sth);
     exit 1;
 }
 
 $r = SQLDisconnect ($cnh);
 
 if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
-    &getdiagrec ($SQL_HANDLE_DBC, $cnh);
+    getdiagrec ($SQL_HANDLE_DBC, $cnh);
     exit 1;
 }
 
 $r = SQLFreeConnect ($cnh);
 
 if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
-    &getdiagrec ($SQL_HANDLE_DBC, $cnh);
+    getdiagrec ($SQL_HANDLE_DBC, $cnh);
     exit 1;
 }
 
 $r = SQLFreeHandle ($SQL_HANDLE_ENV, $evh);
 
 if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
-    &getdiagrec ($SQL_HANDLE_ENV, $evh);
+    getdiagrec ($SQL_HANDLE_ENV, $evh);
     exit 1;
 }
 
@@ -263,16 +286,18 @@ sub getdiagrec {
 			$sqlstate, $native, $buf, $buflen,
 			$rlen);
     if ($r == $SQL_NO_DATA) { 
-	print "result \= SQL_NO_DATA\n";
+	print STDERR "result \= SQL_NO_DATA\n";
     } elsif (($r == $SQL_SUCCESS_WITH_INFO) 
 	     || ($r == $SQL_SUCCESS)) { 
-	print "$buf\n";
+	print STDERR "$buf\n";
     } else { 
-	print "sqlresult = $r\n";
+	print STDERR "sqlresult = $r\n";
     }
 
     return $r;
 }
+
+sub new_array_ref { my @a; return \@a; }
 
 =head1 NAME
 
@@ -282,7 +307,9 @@ rssoutput - Format UnixODBC result set as RSS version 1.0 RDF file.
 
   rssoutput [--help] | [--user=<username>] [--password=<password>] 
   --dsn=<DSN> --query=<SQLQuery> --channel=<channel_info_file>
-  --content=<content_info_file>
+  --content=<content_info_file>   [--image=<image_resource_file>]
+  [--textinput=<texintput_resource_file>]
+
 
 =head1 OPTIONS
 
@@ -312,9 +339,9 @@ A file that contains information about the RSS channel, as an
 anonymous hash.  A channel description might look like this.
 
   {
-    title => 'Sample Feed',
-    description => 'Sample Feed for UnixODBC::RSS.pm',
-    link => 'http://www.yourserver.yourdomain.org/feed.cgi'
+    'title' => 'Sample Feed',
+    'description' => 'Sample Feed for UnixODBC::RSS.pm',
+    'link' => 'http://www.yourserver.yourdomain.org/feed.cgi'
   }
 
 =head2 --content
@@ -332,9 +359,31 @@ and the name of an item member tag: <title>, <description>, <name>,
     'url' => 'link'
   }
 
+=head2 --image
+
+Channel image resource information provided in the file that is the
+argument's parameter should have the form:
+
+  {
+	'title' => 'Test Image',
+	'url' => 'http://owl/icons/ball.red.gif'
+  }
+
+=head2 --textinput
+
+Channel <textinput> resource information in the file given as a parameter.
+
+  {
+    'title' => 'Test TextInput',
+    'description' => 'This is a test text input',
+    'name' => 'Test Input',
+    'link' => 'http://owl'
+  }
+
+
 =head1 VERSION INFORMATION AND CREDITS
 
-Version 0.1
+Version 0.2
 
 Copyright © 2004 Robert Kiesling, rkies@cpan.org.
 
@@ -343,6 +392,6 @@ for details.
 
 =head1 SEE ALSO
 
-perl(1), UnixODBC(3), UnixODBC::BridgeServer(3), UnixODBC::RSS(3)
+perl(1), UnixODBC(3), UnixODBC::RSS(3)
 
 =cut
