@@ -150,6 +150,7 @@ foreach my $d (@dsns) {
         print qq| target="main">\n|;
         print qq|<img src="/icons/dsn.gif" border="0" |;
         print qq| align="middle" hspace="10">$d2</a>\n|;
+        print qq| hspace="10">$d2</a>\n|;
         print qq|</div>\n|;
 	
 	if ( ($#{$d -> {tablearrayref}} != -1 ) &&

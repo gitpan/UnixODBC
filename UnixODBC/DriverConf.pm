@@ -1,6 +1,6 @@
 package UnixODBC::DriverConf;
 
-# $Id: DriverConf.pm,v 1.14 2004/03/24 00:54:59 kiesling Exp $
+# $Id: DriverConf.pm,v 1.16 2004/03/30 15:07:28 kiesling Exp $
 
 our $VERSION=0.01;
 
@@ -10,7 +10,7 @@ our $VERSION=0.01;
 	       &SQLGetAvailableDrivers &odbcinst_system_file_path
                &SQLValidDSN &Values &Help &PromptType &PromptData
 	       &SQLSetConfigMode &SQLGetConfigMode &GetProfileString
-	       &WriteProfileString
+	       &WriteProfileString &GetDSN
 	   $ODBCINST_PROMPTTYPE_LABEL $ODBCINST_PROMPTTYPE_TEXTEDIT
 	   $ODBCINST_PROMPTTYPE_LISTBOX $ODBCINST_PROMPTTYPE_COMBOBOX
 	   $ODBCINST_PROMPTTYPE_FILENAME $ODBCINST_PROMPTTYPE_HIDDEN
@@ -69,6 +69,9 @@ UnixODBC::DriverConf - Properties for UnixODBC drivers.
     $s = $self -> GetProfileString ($section, $keyword, $filename);
     $self -> WriteProfileString ($section, $newprofilestring, $filename);
 
+    @dsn = $self -> GetDSN ($name, $filename);
+    $self -> WriteDSN (\@template, $filename);
+    
 
     # Procedural Interface
 
@@ -79,6 +82,8 @@ UnixODBC::DriverConf - Properties for UnixODBC drivers.
     $r = SQLValidDSN ($dsn);
 
     $confpath = odbcinst_system_file_path ();
+    @dsn = GetDSN ($name, $filename);
+    WriteDSN (\@template, $filename);
 
 
 
@@ -199,6 +204,13 @@ called by new ().
 
   $self -> ConstructProperties ($driver);
 
+=head2 GetDSN (I<dsn>, I<filename>)
+
+
+Returns a list of the template of I<dsn> from I<filename>.
+
+    my @dsn = $self -> GetDSN ('mydsn', '/usr/local/etc/odbc.ini');
+
 =head2 GetProfileString (I<section>, I<keyword>, I<conffile>)
 
 
@@ -305,6 +317,19 @@ Write a profile string to I<conffile>.
 Return a hash of values for each property.
 
   %values = $self -> Values;
+
+
+=head2 WriteDSN (I<templateref>, I<filename>)
+
+
+Writes the template array reference I<templateref> to I<filename>.
+
+  my $template = ['[MyDSN]', 
+                  'prop1 = val1',
+                  'prop2 = val2',
+                  'prop3 = val3'];
+
+  $self -> WriteDSN ($template, '/usr/local/etc/odbc.ini');
 
 =head1 EXPORTS
 
@@ -442,4 +467,31 @@ sub WriteProfileString {
 
     return 0;
 }
+
+sub GetDSN {
+    my $self = shift;
+    my ($dsn, $file) = @_;
+    my $l;
+    my $sec = 0; 
+    my @a;
+    open FILE, "$file" or die "GetDSN: $!\n";
+
+    while (defined ($l = <FILE>)) {
+	$sec = 1 if ($l =~ m"^\[$dsn\]");
+	last if ($sec == 1 && ($l =~ /^\[/) && ($l !~ m"\[$dsn\]"));
+	push @a, ($l) if $sec;
+    }
+    close FILE;
+    return @a;
+}
+
+sub WriteDSN {
+    my $self = shift;
+    my ($template, $file) = @_;
+
+    open FILE, ">> $file" or die "WriteDSN: $!\n";
+    foreach (@$template) { chomp; print FILE "$_\n"; }
+    close FILE;
+}
+
 1;
