@@ -1,6 +1,6 @@
 package UnixODBC;
 
-#$Id: UnixODBC.pm,v 1.38 2003/11/28 22:42:20 kiesling Exp $
+#$Id: UnixODBC.pm,v 1.39 2004/01/25 02:35:42 kiesling Exp $
 
 use strict;
 use warnings;
@@ -468,7 +468,7 @@ our @EXPORT_OK = qw($SQL_NULL_DATA $SQL_DATA_AT_EXEC $SQL_HANDLE_ENV
 our %EXPORT_TAGS = ( 'all' => [@EXPORT_OK] );
 
 our @EXPORT = qw();
-our $VERSION = '0.24';
+our $VERSION = '0.25';
 
 sub AUTOLOAD {
     # This AUTOLOAD is used to 'autoload' constants from the constant()
@@ -3565,7 +3565,7 @@ how to cope with different data types and attribute masks.
 
   #!/usr/bin/perl -w
 
-  # $Id: UnixODBC.pm,v 1.38 2003/11/28 22:42:20 kiesling Exp $
+  # $Id: UnixODBC.pm,v 1.39 2004/01/25 02:35:42 kiesling Exp $
   $VERSION=1.0;
 
   use UnixODBC qw(:all);

@@ -1,14 +1,8 @@
 #!/usr/bin/perl
 
-#$Id: tkdm,v 1.14 2003/11/28 22:19:07 kiesling Exp $
+#$Id: tkdm,v 1.15 2004/01/25 02:35:21 kiesling Exp $
 
-    ###*** 
-    # So far: (2003-07-21)
-    # - Added $dsnpane -> update to init(),
-    # - Set linespacing to font size in init().
-    #
-
-$VERSION='0.14a';
+$VERSION='0.15';
 @EXPORT_OK=(qw/$VERSION/);
 
 use Tk;
@@ -501,7 +495,7 @@ my %textsizes;
 sub about {
     my $mw = $_[0];
     my $abouttext = "Tkdm Version $VERSION\n" .
-	"Copyright \xa9 2002-2003 by Robert Allan Kiesling.\n" .
+	"Copyright \xa9 2002-2004 by Robert Allan Kiesling.\n" .
 	"Licensed using the same license as Perl.  Refer to the file " .
 	"\"Artistic\" for information.\n";
     my $dialog = $mw -> Dialog (-title => 'About Tkdm',

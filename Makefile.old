@@ -47,9 +47,9 @@ AR_STATIC_ARGS = cr
 NAME = UnixODBC
 DISTNAME = UnixODBC
 NAME_SYM = UnixODBC
-VERSION = 0.24
-VERSION_SYM = 0_24
-XS_VERSION = 0.24
+VERSION = 0.25
+VERSION_SYM = 0_25
+XS_VERSION = 0.25
 INST_BIN = blib/bin
 INST_EXE = blib/script
 INST_LIB = blib/lib
@@ -847,7 +847,7 @@ testdb_static :: pure_all $(MAP_TARGET)
 # --- MakeMaker ppd section:
 # Creates a PPD (Perl Package Description) for a binary distribution.
 ppd:
-	@$(PERL) -e "print qq{<SOFTPKG NAME=\"UnixODBC\" VERSION=\"0,24,0,0\">\n}. qq{\t<TITLE>UnixODBC</TITLE>\n}. qq{\t<ABSTRACT></ABSTRACT>\n}. qq{\t<AUTHOR></AUTHOR>\n}. qq{\t<IMPLEMENTATION>\n}. qq{\t\t<OS NAME=\"$(OSNAME)\" />\n}. qq{\t\t<ARCHITECTURE NAME=\"i386-linux\" />\n}. qq{\t\t<CODEBASE HREF=\"\" />\n}. qq{\t</IMPLEMENTATION>\n}. qq{</SOFTPKG>\n}" > UnixODBC.ppd
+	@$(PERL) -e "print qq{<SOFTPKG NAME=\"UnixODBC\" VERSION=\"0,25,0,0\">\n}. qq{\t<TITLE>UnixODBC</TITLE>\n}. qq{\t<ABSTRACT></ABSTRACT>\n}. qq{\t<AUTHOR></AUTHOR>\n}. qq{\t<IMPLEMENTATION>\n}. qq{\t\t<OS NAME=\"$(OSNAME)\" />\n}. qq{\t\t<ARCHITECTURE NAME=\"i386-linux\" />\n}. qq{\t\t<CODEBASE HREF=\"\" />\n}. qq{\t</IMPLEMENTATION>\n}. qq{</SOFTPKG>\n}" > UnixODBC.ppd
 
 # --- MakeMaker pm_to_blib section:
 

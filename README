@@ -419,8 +419,8 @@ notes.
 
 UnixODBC.pm is written by Robert Allan Kiesling, rkies@cpan.org.
 
-Copyright 2002-2003 by Robert Allan Kiesling and licensed using
+Copyright 2002-2004 by Robert Allan Kiesling and licensed using
 the same terms as Perl.  Refer to the file "Artistic" for the 
 details.
 
-$Id: README,v 1.8 2003/11/28 22:23:12 kiesling Exp $
+$Id: README,v 1.9 2004/01/25 02:35:42 kiesling Exp $
