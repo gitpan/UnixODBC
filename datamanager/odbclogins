@@ -1,0 +1,7 @@
+# odbclogins - each line has the format server::user::password
+# IMPORTANT - make sure you chmod 0600 odbclogins, and change
+# ownership to the user and group of the httpd server - usually
+# user nobody, group nobody
+host1::user::password
+host2::user::password
+host3::user::password

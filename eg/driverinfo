@@ -1,0 +1,82 @@
+#!/usr/local/bin/perl
+
+use UnixODBC qw (:all);
+use Getopt::Long;
+my $usage=<<EOH;
+Usage: driverinfo [--help]
+  --help       Print this help and exit.
+EOH
+
+my $help;  # Print help and exit.
+
+GetOptions ('help' => \$help);
+
+if ($help) {
+    print $usage;
+    exit 0;
+}
+
+my ($envhandle, $sqlresult, $dsnname, $drivername);
+my ($driver_desc,$pcb_driver_desc,$driver_attributes, $pcb_attr_max);
+
+$sqlresult = SQLAllocHandle ($SQL_HANDLE_ENV,$SQL_NULL_HANDLE,$envhandle);
+if ($sqlresult != $SQL_SUCCESS) {
+    &getdiagrec ($SQL_HANDLE_ENV, $envhandle);
+    exit 1;
+}
+
+$sqlresult = SQLSetEnvAttr ($envhandle, $SQL_ATTR_ODBC_VERSION,
+			    $SQL_OV_ODBC3, 0);
+if ($sqlresult != $SQL_SUCCESS) {
+    &getdiagrec ($SQL_HANDLE_ENV, $envhandle);
+    exit 1;
+}
+
+$sqlresult = SQLDrivers ($envhandle, $SQL_FETCH_FIRST, $driver_desc,
+			 255, $pcb_driver_desc, $driver_attributes,
+			 255, $pcb_attr_max);
+if (($sqlresult != $SQL_SUCCESS) && ($sqlresult != $SQL_NO_DATA)) {
+    &getdiagrec ($SQL_HANDLE_ENV, $envhandle);
+    exit 1;
+}
+print "$driver_desc, $driver_attributes\n";
+
+if ($sqlresult==$SQL_SUCCESS) {
+    while (1) {
+	$sqlresult = 
+	    SQLDrivers ($envhandle, $SQL_FETCH_NEXT, $driver_desc, 255,
+			$pcb_driver_desc, $driver_attributes,
+			255, $pcb_attr_max);
+	if (($sqlresult != $SQL_SUCCESS) && ($sqlresult != $SQL_NO_DATA)) {
+	    &getdiagrec ($SQL_HANDLE_ENV, $envhandle);
+	    exit 1;
+	}
+	last if $sqlresult = $SQL_NO_DATA;
+	print "$driver_desc, $driver_attributes\n";
+    }
+}
+
+$sqlresult = SQLFreeHandle ($SQL_HANDLE_ENV, $envhandle);
+if ($sqlresult != $SQL_SUCCESS) {
+    &getdiagrec ($SQL_HANDLE_ENV, $envhandle);
+    exit 1;
+}
+
+exit 0;
+
+sub getdiagrec {
+    my ($handle_type, $handle) = @_;
+    my ($sqlstate, $native, $message_text, $msglength);
+    print 'SQLGetDiagRec: ';
+    $sqlresult = SQLGetDiagRec ($handle_type, $handle, 1, $sqlstate,
+				$native, $message_text, 255, $msglength);
+    if ($sqlresult == $SQL_NO_DATA) { 
+	print "result \= SQL_NO_DATA\n";
+    } elsif (($sqlresult == 1) || ($sqlresult == 0)) { 
+     print "$message_text\n";
+    } else { 
+     print "sqlresult = $sqlresult\n";
+    }
+    return $sqlresult;
+}
+

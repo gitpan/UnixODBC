@@ -1,0 +1,14 @@
+#! /usr/local/bin/perl -w
+
+use UnixODBC qw(:all);
+use UnixODBC::BridgeServer;
+
+# Signal handler for PostgreSQL exceptions.
+$SIG{PIPE} = sub{print "SIGPIPE: ". $!."\n"};
+
+$SIG{TERM} = sub { 
+    `rm -f /usr/local/var/odbcbridge/odbcbridge.pid` ; exit 0 
+    }; 
+
+&UnixODBC::BridgeServer::main;
+

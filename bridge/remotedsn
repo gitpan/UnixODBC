@@ -1,0 +1,49 @@
+#! /usr/local/bin/perl
+
+require 5.004;
+use strict;
+
+require RPC::PlClient;
+use UnixODBC qw (:all);
+use UnixODBC::BridgeServer;
+
+my $client = 
+    eval { RPC::PlClient->new('peeraddr' => '192.168.0.11',
+			  'peerport' => 9999,
+			  'application' => 'RPC::PlServer',
+			  'version' => $UnixODBC::VERSION,
+			  'user' => 'kiesling',
+			  'password' => 'drum') }
+    or print "Failed to make first connection: $@\n";
+
+my $c = $client -> ClientObject ('BridgeAPI', 'new');
+
+my $evh = 0;
+my $cnh = 0;
+my ($r, $sqlstate, $native, $text, $textlen);
+my ($dsn, $dsnlength, $driver, $driverlength);
+
+$evh =  $c -> sql_alloc_handle ($SQL_HANDLE_ENV, $SQL_NULL_HANDLE);
+$r = $c -> 
+    sql_set_env_attr ($evh, $SQL_ATTR_ODBC_VERSION, $SQL_OV_ODBC2, 0);
+
+$cnh = $c -> sql_alloc_handle ($SQL_HANDLE_DBC, $evh);
+
+($r, $sqlstate, $native, $text, $textlen) = 
+    $c -> sql_get_diag_rec ($SQL_HANDLE_ENV, $evh, 1, 255);
+
+($r, $dsn, $dsnlength, $driver, $driverlength) = 
+    $c -> sql_data_sources ($evh, $SQL_FETCH_FIRST, 255, 255);
+print "$dsn, $driver\n";
+while (1) {
+($r, $dsn, $dsnlength, $driver, $driverlength) = 
+    $c -> sql_data_sources ($evh, $SQL_FETCH_NEXT, 255, 255);
+    last unless $r == $SQL_SUCCESS;
+    print "$dsn, $driver\n";
+}
+
+$r = $c -> sql_free_handle ($SQL_HANDLE_DBC, $cnh);
+$r = $c -> sql_free_handle ($SQL_HANDLE_ENV, $evh);
+
+($r, $sqlstate, $native, $text, $textlen) = 
+    $c -> sql_get_diag_rec ($SQL_HANDLE_ENV, $evh, 1, 255);

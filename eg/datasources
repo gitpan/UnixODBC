@@ -1,0 +1,76 @@
+#!/usr/local/bin/perl
+
+# 
+# List data sources and ODBC drivers.
+#
+
+use UnixODBC qw(:all);
+use Getopt::Long;
+my $usage=<<EOH;
+Usage: datasources [--help]
+  --help       Print this help and exit.
+EOH
+
+my $help;  # Print help and exit.
+
+GetOptions ('help' => \$help);
+
+if ($help) {
+    print $usage;
+    exit 0;
+}
+
+my ($envhandle, $sqlresult, $dsnname, $drivername);
+
+$sqlresult = SQLAllocHandle ($SQL_HANDLE_ENV,$SQL_NULL_HANDLE, $envhandle);
+if ($sqlresult != $SQL_SUCCESS) {
+    &getdiagrec ($SQL_HANDLE_ENV, $envhandle);
+    exit 1;
+}
+$sqlresult = SQLSetEnvAttr ($envhandle, $SQL_ATTR_ODBC_VERSION, 
+			    $SQL_OV_ODBC3, 0);      
+if ($sqlresult != $SQL_SUCCESS) {
+    &getdiagrec ($SQL_HANDLE_ENV, $envhandle);
+    exit 1;
+}
+$sqlresult = SQLDataSources ( $envhandle,$SQL_FETCH_FIRST,
+			      $dsnname, 255, $messagelength1,
+			      $drivername, 255, $messagelength2 );
+print "$dsnname -- $drivername\n" if $sqlresult == $SQL_SUCCESS;
+if (($sqlresult != $SQL_SUCCESS) && ($sqlresult != $SQL_NO_DATA)) {
+    &getdiagrec ($SQL_HANDLE_ENV, $envhandle);
+    exit 1;
+}
+while ($sqlresult != $SQL_NO_DATA) {
+    $sqlresult = SQLDataSources ($envhandle, $SQL_FETCH_NEXT,
+				 $dsnname, 255, $messagelength1,
+				 $drivername, 255, $messagelength2);
+    if (($sqlresult != $SQL_SUCCESS) && ($sqlresult != $SQL_NO_DATA)) {
+	&getdiagrec ($SQL_HANDLE_ENV, $envhandle);
+	exit 1;
+    }
+    print "$dsnname -- $drivername\n" if $sqlresult == $SQL_SUCCESS;
+}
+
+$sqlresult = SQLFreeHandle ($SQL_HANDLE_ENV, $envhandle);
+if ($sqlresult != $SQL_SUCCESS) {
+    &getdiagrec ($SQL_HANDLE_ENV, $envhandle);
+    exit 1;
+}
+
+exit 0;
+
+sub getdiagrec {
+    my ($handle_type, $handle) = @_;
+    my ($sqlstate, $native, $message_text,$msglength);
+    $sqlresult = SQLGetDiagRec ($handle_type, $handle,
+				1, $sqlstate, $native,
+				$message_text, 255, $msglength);
+    if ($sqlresult == 100) { 
+	print "result \= $sqlresult\n";
+    } elsif (($sqlresult == 1) || ($sqlresult == 0)) { 
+	print "result \= $sqlresult, text \= $message_text\n";
+    } else { 
+	print "sqlresult = $sqlresult\n";
+    }
+}

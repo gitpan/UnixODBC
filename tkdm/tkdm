@@ -1,0 +1,1638 @@
+#!/usr/local/bin/perl -w
+
+use Tk;
+use Tk::Font;
+use Tk::Balloon;
+use Getopt::Long;
+use UnixODBC qw(:all);
+use UnixODBC::BridgeServer;
+use RPC::PlClient;
+
+my $loginsfile = $ENV{HOME}.'/.odbclogins';
+my %peers;  # Hash of host keys and value of login data from $loginsfile.
+my %hostdsns; # Hash of host keys with list of dsns for value.
+my $peerport = 9999;
+
+##
+## Connection Status -
+##
+my $HOST_NOT_CONNECTED = 'Not connected';
+my $HOST_CONNECTED = 'Connected';
+my $DSN_OPEN = 'Open DSN';
+my $CLIENT_LOGIN_ERROR = 'Client login error.';
+
+my $dsnloginusername = '';
+my $dsnloginpassword = '';
+
+# Text of SQL query entered by user.
+my $userquerytext = 'Enter your SQL query here.';
+
+my @hostlabels; # Refs of dsnlabel hashes.
+my %tablepanetags; # Canvas Ids and subwidget tags of table pane 
+                   # hashes.
+
+my $imagepadding = 3;  # Pixels of padding around images.
+my $host_indent = 5;
+my $dsn_indent = 10;
+my $table_indent = 15;
+
+my $helptext =<<EOHELP;
+Usage: tkdm [options]
+Options:
+--bgcolor color      Set the background color to "color".
+--debug              Print debugging messages.
+--displayfont font   Font used in labels.
+--help               Print this message and exit.
+--monofont font      Monospaced font for columnar results.
+--relief style       Change the widget relief highlights to
+                     "style": "raised," "sunken," "flat," "ridge," 
+                     "solid," "groove," or "none."
+--selectedfont font  Font for selected labels.
+
+Refer to the man page ("man tkdm") for information.
+EOHELP
+
+#
+# Command Line Options
+#
+my $debug = 0;         # Print debuggin messages.
+my $bgcolor = 'white';  # Background color for widgets.
+my $relief = 'groove'; # How to draw the widget reliefs, 
+                       # except for entry widgets.
+my $borderwidth = 1;   # Width of widget borders.
+my $help = 0;          # Print help and exit.
+my $balloonwait = 1000; # 1 second
+my $dsnnormalfont = '-*-helvetica-medium-r-*-*-12-120-*-*-*-*-*-*';
+my $dsnselectedfont = '-*-helvetica-bold-r-*-*-12-120-*-*-*-*-*-*';
+# This should be monospaced so columns line up.
+my $resultsfont = '-*-courier-medium-r-*-*-12-120-*-*-*-*-*-*';
+
+my $optresult = GetOptions ( "borderwidth=i" => \$borderwidth,
+			     "debug" => \$debug,
+                             "displayfont=s" => \$dsnnormalfont,
+			     "bgcolor=s" => \$bgcolor,
+			     "relief=s" => \$relief,
+			     "monofont=s" => \$resultsfont,
+			     "selectedfont=s" => \$dsnselectedfont,
+			     "help" => \$help
+			     );
+
+if ($help) {
+    print $helptext;
+    exit 0;
+}
+
+my ($textbuttonxpmwidth, $textbuttonxpmheight);
+no warnings;
+my $textbuttonxpm = <<EOTEXTBUTTONXPM;
+/* XPM */
+static char * textbutton_xpm[] = {
+"24 24 10 1",
+" 	c None",
+".	c #FFFFFF",
+"+	c #AAAAAA",
+"@	c #C7C7C7",
+"#	c #000000",
+"$	c #555555",
+"%	c #1D1D1D",
+"&	c #393939",
+"*	c #727272",
+"=	c #E3E3E3",
+"                        ",
+"                        ",
+"                        ",
+"                        ",
+"                        ",
+"                        ",
+"      ##########        ",
+"      ##########        ",
+"      ##  ##  ##        ",
+"      ##  ##  ##        ",
+"          ##            ",
+"          ##            ",
+"          ##            ",
+"          ##            ",
+"          ##            ",
+"          ##            ",
+"       ########         ",
+"       ########         ",
+"                        ",
+"                        ",
+"                        ",
+"                        ",
+"                        ",
+"                        "};
+EOTEXTBUTTONXPM
+use warnings;
+
+my ($selectxpmwidth, $selectxpmheight);
+no warnings;
+my $selectxpm = <<EOSELECTXPM;
+/* XPM */
+static char * scratch[] = {
+"24 24 2 1 XPMEXT",
+" 	c None",
+".	c black",
+"                        ",
+"                        ",
+"                        ",
+"                        ",
+"                        ",
+"                        ",
+"                        ",
+"           ......       ",
+"         ..........     ",
+"        ...      ..     ",
+"        .         ..    ",
+"        ...       ..    ",
+"        . ...   ....    ",
+"         .   .....  ..  ",
+"          ...   ....  ..",
+"             ...  ....  ",
+"                    ....",
+"                      ..",
+"                        ",
+"                        ",
+"  ........  ........    ",
+"          ..            ",
+" .........  .........   ",
+"          ..            "};
+EOSELECTXPM
+use warnings;
+
+no warnings;
+my ($enterxpmwidth, $enterxpmheight);
+my $enterxpm = <<EOENTERXPM;
+/* XPM */
+static char * enter_xpm[] = {
+"24 24 2 1",
+" 	c None",
+"+	c #000000",
+"                        ",
+"                        ",
+"                        ",
+"                        ",
+"                        ",
+"                        ",
+"                        ",
+"                        ",
+"                        ",
+"     +         +        ",
+"    ++         +        ",
+"   +++++++++++++        ",
+"    ++                  ",
+"     +                  ",
+"                        ",
+"                        ",
+"                        ",
+"                        ",
+"                        ",
+"                        ",
+"                        ",
+"                        ",
+"                        ",
+"                        "};
+EOENTERXPM
+use warnings;
+
+my ($tablexpmwidth, $tablexpmheight);
+no warnings; # turn off warning messages on image data.
+my $tablexpm = <<EOTABLEXPM;
+/* XPM */
+static char * table_2_xpm[] = {
+"11 19 2 1",
+" 	c None",
+"@	c #000000",
+"           ",
+"           ",
+"@@@@@@@@@@ ",
+"@        @@",
+"@        @@",
+"@        @@",
+"@        @@",
+"@        @@",
+"@        @@",
+"@        @@",
+"@        @@",
+"@        @@",
+"@        @@",
+"@        @@",
+"@        @@",
+"@        @@",
+"@@@@@@@@@@@",
+" @@@@@@@@@ ",
+"           "
+};
+EOTABLEXPM
+
+my ($termxpmwidth, $termxpmheight);
+no warnings;  # turn off warning messages on image data.
+my $termxpm = <<EOTERMXPM;
+/* XPM */
+static char *magick[] = {
+/* columns rows colors chars-per-pixel */
+"25 22 2 1",
+"  c Black",
+"C c None",
+/* pixels */
+"CCCCCCCCCCCCCCCCCCCCCCCCC",
+"CC                   CCCC",
+"CC CCCCCCCCCCCCCCCCCC CCC",
+"CC C                C CCC",
+"CC C                C CCC",
+"CC C                C CCC",
+"CC C                C CCC",
+"CC C                C CCC",
+"CC C                C CCC",
+"CC C                C CCC",
+"CC C                C CCC",
+"CC C                C CCC",
+"CC C                C CCC",
+"CC C                C CCC",
+"CC CCCCCCCCCCCCCCCCCC CCC",
+"CCC                  CCCC",
+"CCCCCCCCCCCCCCCCCCCCCCCCC",
+"                         ",
+" CCCCCCCCCCCCCCCCCCCCCCC ",
+" CCCCCCCCCCCCCCCCCCCCCC  ",
+"C                      CC",
+"CCCCCCCCCCCCCCCCCCCCCCCCC"
+};
+EOTERMXPM
+use warnings;
+
+my ($notermxpmwidth, $notermxpmheight);
+no warnings;
+my $notermxpm = <<EONOTERMXPM;
+/* XPM */
+static char *magick[] = {
+/* columns rows colors chars-per-pixel */
+"25 22 3 1",
+"  c Black",
+"C c None",
+"+ c Red",
+/* pixels */
+"C+++CCCCCCCCCCCCCCCCC+++C",
+"CC+++               +++CC",
+"CC +++CCCCCCCCCCCCC+++CCC",
+"CC C+++           +++ CCC",
+"CC C +++         +++C CCC",
+"CC C  +++       +++ C CCC",
+"CC C   +++     +++  C CCC",
+"CC C    +++   +++   C CCC",
+"CC C     +++ +++    C CCC",
+"CC C      +++++     C CCC",
+"CC C       +++      C CCC",
+"CC C      +++++     C CCC",
+"CC C     +++ +++    C CCC",
+"CC C    +++   +++   C CCC",
+"CC CCCC+++CCCCC+++CCC CCC",
+"CCC   +++       +++  CCCC",
+"CCCCC+++CCCCCCCCC+++CCCCC",
+"    +++           +++    ",
+" CC+++CCCCCCCCCCCCC+++CC ",
+" C+++CCCCCCCCCCCCCCC+++  ",
+"C+++                 +++C",
+"+++CCCCCCCCCCCCCCCCCCC+++"
+};
+EONOTERMXPM
+use warnings;
+
+my ($dsnxpmwidth, $dsnxpmheight);
+no warnings;
+my $dsnxpm = <<EODSNXPM;
+/* XPM */
+static char *magick[] = {
+/* columns rows colors chars-per-pixel */
+"17 19 44 1",
+"  c Black",
+". c #010101",
+"X c #020202",
+"o c Gray1",
+"O c #040404",
+"+ c Gray2",
+"@ c #070707",
+"# c Gray3",
+"$ c #090909",
+"% c Gray4",
+"& c #0b0b0b",
+"* c #0c0c0c",
+"= c Gray5",
+"- c #0e0e0e",
+"; c #111111",
+": c Gray7",
+"> c #131313",
+", c Gray8",
+"< c #151515",
+"1 c Gray9",
+"2 c Gray10",
+"3 c #1b1b1b",
+"4 c Gray16",
+"5 c #2f2f2f",
+"6 c #e6e6e6",
+"7 c #eaeaea",
+"8 c Gray93",
+"9 c #eeeeee",
+"q c Gray94",
+"w c #f1f1f1",
+"e c Gray95",
+"r c #f3f3f3",
+"t c #f4f4f4",
+"y c Gray96",
+"u c #f6f6f6",
+"i c Gray97",
+"p c #f8f8f8",
+"a c #f9f9f9",
+"s c Gray98",
+"d c #fbfbfb",
+"f c Gray99",
+"g c #fdfdfd",
+"h c #fefefe",
+"j c None",
+/* pixels */
+"jjjjjjjjjjjjjjjjj",
+"jj-;   , -% jdjjj",
+"jj3yjjjjjjj;jejjj",
+"jj jjjjjjjj j%ydj",
+"jj jjjjjjjj j3djj",
+"jj jjjjjjjj j j j",
+"jj jjjjjjjj,e%j j",
+"jj jjjjjjjj j j j",
+"jj jjjjjjjj j j j",
+"jj jjjyjjjj j j j",
+"jj jjjjjjjj-j j j",
+"jj jjjjjjjj j-j j",
+"jj;jjjjjjjj%j%j j",
+"jj  %   ;,  d j j",
+"jjjjjdjdyjdjjjy j",
+"jdjj    % -j  j j",
+"yjddjj7jjdjjejy,j",
+"j7jjj75 ;  -  4 j",
+"jjjjjjjjjjjjjjjjj"
+};
+EODSNXPM
+use warnings;
+
+my $mw = new MainWindow (-title => 'Data Manager',
+			 -height => 350,
+			 -width => 500);
+
+my $textbuttonpixmap = $mw -> Pixmap ('textbutton', -data => $textbuttonxpm);
+$textbuttonxpmwidth = $textbuttonpixmap -> width;
+$textbuttonxpmheight = $textbuttonpixmap -> height;
+my $enterpixmap = $mw -> Pixmap ('enterbutton', -data => $enterxpm);
+$enterxpmwidth = $enterpixmap -> width;
+$enterxpmheight = $enterpixmap -> height;
+my $termpixmap = $mw -> Pixmap ('terminal', -data => $termxpm);
+$termxpmwidth = $termpixmap -> width;
+$termxpmheight = $termpixmap -> height;
+my $notermpixmap = $mw -> Pixmap ('no-term', -data => $notermxpm);
+$notermxpmwidth = $notermpixmap -> width;
+$notermxpmheight = $notermpixmap -> height;
+my $dsnpixmap = $mw -> Pixmap ('dsn', -data => $dsnxpm);
+$dsnxpmwidth = $dsnpixmap -> width;
+$dsnxpmheight = $dsnpixmap -> height;
+my $tablepixmap = $mw -> Pixmap ('table', -data => $tablexpm);
+$tablexpmwidth = $tablepixmap -> width;
+$tablexpmheight = $tablepixmap -> height;
+my $selectpixmap = $mw -> Pixmap ('select', -data => $selectxpm);
+$selectxpmwidth = $selectpixmap -> width;
+$selectxpmheight = $selectpixmap -> height;
+
+my $dsnpane = $mw -> Scrolled ('Canvas', -background => $bgcolor,
+			       -scrollbars => 'se');
+$dsnpane -> Subwidget ('xscrollbar') -> configure (-width => 10);
+$dsnpane -> Subwidget ('yscrollbar') -> configure (-width => 10);
+# Direct access to canvas for misc methods not in Canvas class...
+$kanvaswidget = $dsnpane -> Subwidget ('canvas');
+
+# Font objects for widget size measurement
+my ($family, $weight, $slant, $size) = 
+    ($dsnnormalfont =~ /-\*-(\w*?)-(\w*?)-(\w*?)-\*-\*-(\d\d)/);
+my $normalfontmetric = $dsnpane -> Font (-family => $family,
+				-size => $size,
+				-weight => $weight,
+				-slant => $slant,
+				-underline => 0,
+				-overstrike => 0);
+($family, $weight, $slant, $size) = 
+    ($dsnselectedfont =~ /-\*-(\w*?)-(\w*?)-(\w*?)-\*-\*-(\d\d)/);
+my $boldfontmetric = $dsnpane -> Font (-family => $family,
+				-size => $size,
+				-weight => $weight,
+				-slant => $slant,
+				-underline => 0,
+				-overstrike => 0);
+
+my $dsnlastselected = undef ; # Item ID of last selected item on DSN pane
+my $tablepane = $mw -> Scrolled ('Canvas', -background => $bgcolor,
+				 -scrollbars => 'se');
+$tablepane -> Subwidget ('xscrollbar') -> configure (-width => 10);
+$tablepane -> Subwidget ('yscrollbar') -> configure (-width => 10);
+# Direct access to canvas for misc methods not in Canvas class...
+my $tablewidget = $tablepane -> Subwidget ('canvas');
+my $topmenu = $mw -> Menu (-type => 'normal', -tearoff => '',
+	Name => 'topMenu');
+$topmenu -> add ('command', -label => 'Exit', 
+	-command => sub {$mw -> WmDeleteWindow});
+$dsnpane -> place (-x => 0, -y => 0, -relwidth => 0.4, -relheight => 1.0);
+$tablepane -> place (-relx => 0.40, -y => 0, -relwidth => 0.6, 
+	-relheight => 1.0);
+
+# Callback to pop up the menu.
+$mw -> bind ('<ButtonPress-3>',
+	[\&postpopupmenu, $topmenu, Ev('X'), Ev('Y')]);
+
+# These are the major callbacks for each pane.
+$mw -> Tk::bind ($kanvaswidget, '<ButtonPress-1>', 
+		  [\&dsnclick, $dsnpane, Ev('x'), Ev('y')]);
+
+sub postpopupmenu {
+    my $w = shift;
+    my $menu = shift;
+    my $x = shift;
+    my $y = shift;
+    $menu -> post ($x, $y);
+}
+
+sub dsnclick {
+    my $self = shift;
+    my $mw = shift;
+    my $x = shift;
+    my $y = shift;
+
+    my (@column_names);
+    my $x_canv = $kanvaswidget -> canvasx ($x);
+    my $y_canv = $kanvaswidget -> canvasy ($y);
+    $x = $x_canv; $y = $y_canv;
+
+    foreach my $label (@hostlabels) {
+	if ((($x >= $label -> {x_org}) && ($y >= $label -> {y_org}))
+	    && (($x <= $label -> {x_bound}) && $y <= $label -> {y_bound})){
+	    # Check if its a table item first.
+	    # Only one table at a time.
+	    if (length ($label -> {table}) != 0) {
+		if ($dsnlastselected == $label -> {text_id}) {
+		# Toggle the selection of a label.
+		    $dsnpane -> itemconfigure ($dsnlastselected, 
+					       -font => $dsnnormalfont);
+			$dsnlastselected = 0;
+		} else {
+		    $dsnpane -> itemconfigure ($dsnlastselected,
+				       -font => $dsnnormalfont);
+		    $dsnpane -> itemconfigure ($label -> {text_id}, 
+				   -font => $dsnselectedfont);
+		    $dsnlastselected = $label -> {text_id};
+		    @column_names = describe_table ($label);
+		    $label -> {columns} = \@column_names;
+		    drawtablepaneselectform ($tablewidget, $label);
+		}
+		last;
+	    }
+
+	    if (length $label -> {connect_status} =~ m"$DSN_OPEN") {
+		close_dsn ($label -> {host}, $label -> {dsn});
+		last;
+	    }
+
+	    no warnings; # Avoid uninitialized value warnings from undefs.
+	    if ($dsnlastselected != $label -> {text_id}) {
+		$dsnpane -> itemconfigure ($label -> {text_id}, 
+					   -font => $dsnselectedfont);
+		$dsnpane -> itemconfigure ($dsnlastselected, 
+					   -font => $dsnnormalfont);
+		$dsnlastselected = $label -> {text_id};
+		open_dsn ($label -> {host}, $label -> {dsn});
+		last;
+	    } else {
+		$dsnpane -> itemconfigure ($label -> {text_id}, 
+					   -font => $dsnnormalfont);
+		$dsnlastselected = 0;
+		last;
+	    }
+	    use warnings;
+	}
+    }
+}
+
+sub open_dsn {
+    my ($host, $dsn) = @_;
+    return if ((! length ($host)) || (! length ($dsn)));
+    getdsnlogin ($host, $dsn);
+}
+
+sub close_dsn {
+    my ($host, $dsn) = @_;
+    return if ((! length ($host)) || (! length ($dsn)));
+    my @tmplabels;
+    foreach my $d (@hostlabels) {
+	if (($d -> {host} =~ m"$host") && ($d -> {dsn} =~ m"$dsn")) {
+	# Erase item from the canvas and don't save the table items.
+	    if (length ($d -> {table})) {
+		$dsnpane -> delete ($d -> {image_id});
+		$dsnpane -> delete ($d -> {text_id});
+		next;
+	    } elsif ($d -> {connect_status} =~ m"$DSN_OPEN") {
+		$d -> {login_name} = '';
+		$d -> {password} = '';
+		$d -> {connect_status} = '';
+		push @tmplabels, ($d);
+	    }
+	} else {
+	    push @tmplabels, ($d);
+	}
+    }
+    $#hostlabels = -1;
+    push @hostlabels, @tmplabels;
+    drawdsnpane ($dsnpane);
+}
+
+sub getdsnlogin {
+    my ($host, $dsn) = @_;
+    my $dw = new MainWindow (-title => 'Log In');
+    my $userlabel = $dw -> Label (-text => 'User Name: ',
+				  -font => $dsnnormalfont) 
+	-> grid (-row => 1, -column => 1, -columnspan => 2,
+		 -padx => 5, -pady => 5);
+    my $passwordlabel = $dw -> Label (-text => 'Password: ',
+				      -font => $dsnnormalfont) 
+	-> grid (-row => 2, -column => 1, -columnspan => 2,
+		 -padx => 5, -pady => 5);
+    my $userentry = $dw -> Entry (-font => $dsnnormalfont,
+				  -textvariable => \$dsnloginusername)
+	-> grid (-row => 1, -column => 3, -columnspan => 5,
+		 -padx => 5, -pady => 5); 
+    $dw -> Advertise ('userentry' => $userentry);
+    my $passwordentry = $dw -> Entry (-font => $dsnnormalfont,
+				      -textvariable => \$dsnloginpassword,
+				      -show => '*')
+	-> grid (-row => 2, -column => 3, -columnspan => 5,
+		 -padx => 5, -pady => 5); 
+    $dw -> Advertise ('passwordentry' => $passwordentry);
+    my $loginbutton = 
+	$dw -> Button ( -text => 'Log In',
+	       -font => $dsnnormalfont,
+	       -height => 1,
+	       -width => 10,
+	       -command => sub {tablelogin ($dw, $host, $dsn, 
+					    $dsnloginusername, 
+					    $dsnloginpassword) &&
+						$dw -> WmDeleteWindow}) 
+	    -> grid (-row => 3, -column => 1, -columnspan => 4,
+		     -padx => 5, -pady => 5);
+    my $cancelbutton = 
+	$dw -> Button (-text => 'Cancel',
+		       -font => $dsnnormalfont,
+		       -height => 1,
+		       -width => 10,
+		       -command => sub {$dw -> WmDeleteWindow})
+	    -> grid (-row => 3, -column => 5, -columnspan => 4,
+		     -padx => 5, -pady => 5);
+}
+
+sub tablelogin {
+    my ($dw, $peer, $dsn, $username, $password) = @_;
+    my ($peerusername, $peerpassword) = split /::/, $peers{$peer};
+    my ($evh, $cnh, $sth);
+    my ($r, $sqlstate, $native, $text, $textlen);
+    my (@tables, $tableobj, @tmpdsns);
+    my $c = peer_client_login ($peer, $peerusername, $peerpassword);
+    if ($c =~ m"$CLIENT_LOGIN_ERROR") {
+	error_dialog ($dw, "Could not log in to remote host $peer.");
+	return 1;
+    }
+
+    $evh =  $c -> sql_alloc_handle ($SQL_HANDLE_ENV, $SQL_NULL_HANDLE);
+    if (defined $evh) { 
+	$r = $c -> 
+	    sql_set_env_attr ($evh, $SQL_ATTR_ODBC_VERSION, $SQL_OV_ODBC2, 0);
+    } else {
+	($r, $sqlstate, $native, $text, $textlen) = 
+	    $c -> sql_get_diag_rec ($SQL_HANDLE_ENV, $evh, 1, 255);
+	error_dialog ($dw, $text);
+	return 1;
+    }
+
+    $cnh = $c -> sql_alloc_handle ($SQL_HANDLE_DBC, $evh);
+    if (! defined $cnh) {
+	($r, $sqlstate, $native, $text, $textlen) = 
+	    $c -> sql_get_diag_rec ($SQL_HANDLE_ENV, $evh, 1, 255);
+	error_dialog ($dw, $text);
+	return 1;
+    }
+
+    $r = $c -> sql_connect ($cnh, $dsn, length($dsn),
+			$username, length($username), 
+			$password, length($password));
+    if ($r != $SQL_SUCCESS) {
+	($r, $sqlstate, $native, $text, $textlen) = 
+	    $c -> sql_get_diag_rec ($SQL_HANDLE_DBC, $cnh, 1, 255);
+	error_dialog ($dw, $text);
+	return 1;
+    }
+
+    $sth = $c -> sql_alloc_handle ($SQL_HANDLE_STMT, $cnh);
+    if (! defined $sth) {
+	($r, $sqlstate, $native, $text, $textlen) = 
+	    $c -> sql_get_diag_rec ($SQL_HANDLE_DBC, $cnh, 1, 255);
+	error_dialog ($dw, $text);
+	return 1;
+    }
+
+    $r = $c -> sql_tables ($sth, '', 0, '', 0, '', 0, '', 0);
+    if ($r != $SQL_SUCCESS) {
+	($r, $sqlstate, $native, $text, $textlen) = 
+	    $c -> sql_get_diag_rec ($SQL_HANDLE_STMT, $sth, 1, 255);
+	error_dialog ($dw, $text);
+	return 1;
+    }
+
+    while (1) {
+	$r = $c -> sql_fetch ($sth);
+	last if $r == $SQL_NO_DATA;
+	($r, $text, $textlen) = 
+	    $c -> sql_get_data ($sth, 3, $SQL_C_CHAR, 255);
+	if ($r != $SQL_SUCCESS) {
+	    ($r, $sqlstate, $native, $text, $textlen) = 
+		$c -> sql_get_diag_rec ($SQL_HANDLE_STMT, $sth, 1, 255);
+	    error_dialog ($dw, $text);
+	    return 1;
+	} 
+	$tableobj = new_dsnlabel();
+	$tableobj -> {host} = $peer;
+	$tableobj -> {dsn} = $dsn;
+	$tableobj -> {table} = $text;
+	$tableobj -> {login_name} = $username;
+	$tableobj -> {password} = $password;
+	push @tables, ($tableobj);
+    }
+
+    $r = $c -> sql_free_handle ($SQL_HANDLE_STMT, $sth);
+    if ($r != $SQL_SUCCESS) {
+	($r, $sqlstate, $native, $text, $textlen) = 
+	    $c -> sql_get_diag_rec ($SQL_HANDLE_STMT, $sth, 1, 255);
+	error_dialog ($dw, $text);
+	return 1;
+    }
+
+    no warnings; # Turn off warnings for undef return values when
+                 # handles no longer exist.
+    $r = $c -> sql_disconnect ($cnh);
+    if ($r != $SQL_SUCESS) {
+	($r, $sqlstate, $native, $text, $textlen) = 
+	    $c -> sql_get_diag_rec ($SQL_HANDLE_DBC, $cnh, 1, 255);
+	error_dialog ($dw, $text);
+	return 1;
+    }
+
+    $r = $c -> sql_free_connect ($cnh);
+    if ($r != $SQL_SUCESS) {
+	($r, $sqlstate, $native, $text, $textlen) = 
+	    $c -> sql_get_diag_rec ($SQL_HANDLE_DBC, $cnh, 1, 255);
+	error_dialog ($dw, $text);
+	return 1;
+    }
+
+    $r = $c -> sql_free_handle ($SQL_HANDLE_ENV, $evh);
+    if ($r != $SQL_SUCESS) {
+	($r, $sqlstate, $native, $text, $textlen) = 
+	    $c -> sql_get_diag_rec ($SQL_HANDLE_ENV, $evh, 1, 255);
+	error_dialog ($dw, $text);
+	return 1;
+    }
+    use warnings;
+
+    # Split @hostlabels and insert the table names,
+    foreach my $h (@hostlabels) {
+	if (($h -> {host} =~ m"$peer") && ($h -> {dsn} =~ m"$dsn")) {
+	    $h -> {login_name} = $username;
+	    $h -> {password} = $password;
+	    $h -> {connect_status} = $DSN_OPEN;
+	    push @tmpdsns, ($h);
+	    foreach my $t (@tables) {
+		push @tmpdsns, ($t);
+	    }
+	} else {
+	    push @tmpdsns, ($h);
+	}
+    }
+    $#hostlabels = -1;
+    push @hostlabels, @tmpdsns;
+    drawdsnpane ($dsnpane);
+    return 1;
+}
+
+sub error_dialog {
+    my ($w, $errortext) = @_;
+    require Tk::Dialog;
+    my $dialog = $w -> Dialog (-title => 'Error',
+				-text => $errortext,
+				-bitmap => 'error',
+				-buttons => [qw/Dismiss/]);
+    $dialog -> {SubWidget}{B_Dismiss} -> 
+	configure (-font => $dsnnormalfont);
+    $dialog -> {SubWidget}{message} -> 
+	configure (-font => $dsnnormalfont);
+    $dialog -> Show;
+}
+
+sub getpeerlogins {
+    die "Can't find $loginsfile: $!\n" if ! -f $loginsfile;
+    my ($line, $host, $userpwd);
+    open LOGINS, $loginsfile or die "Can't open $loginsfile: $!\n";
+    while (defined ($line = <LOGINS>)) {
+	next if $line =~ /^\#/;
+	next if $line !~ /.*?::.*?::/;
+	($host, $userpwd) = split /::/, $line, 2;
+	$peers{$host} = $userpwd;
+    }
+    close LOGINS;
+}
+
+sub dsntree {
+    my $pane = $_[0];
+    $#hostlabels = -1;
+    my (@dsnlist, $dsnlabelptr);
+    foreach my $p (keys %peers) {
+	$dsnlabelptr = new_dsnlabel();
+	$dsnlabelptr -> {host} = $p;
+	push @hostlabels, ($dsnlabelptr);
+	@dsnlist = getdsns ($p);
+	if ($dsnlist[0] =~ m"$HOST_NOT_CONNECTED")  {
+	    $dsnlabelptr -> {host} = $p;
+	    $dsnlabelptr -> {connect_status} = $dsnlist[0];
+	    next; # next peer
+	}
+	foreach my $d (@dsnlist) {
+	    $dsnlabelptr = new_dsnlabel();
+	    $dsnlabelptr -> {host} = $p;
+	    $dsnlabelptr -> {dsn} = $d;
+	    $dsnlabelptr -> {connect_status} = $HOST_CONNECTED;
+	    push @hostlabels, ($dsnlabelptr);
+	} # foreach @dsnlist 
+    } # foreach keys %peers
+    drawdsnpane($pane);
+}
+
+sub tablepanecontrolbuttons {
+    my ($labelptr) = @_;
+    my $frame = $tablewidget -> Frame (-borderwidth => $borderwidth, 
+			      -relief => $relief,
+			      -height => 26,
+			      -background => $bgcolor) -> pack;
+    my $selectbutton = $frame -> Button (-image => $selectpixmap,
+					 -relief => $relief,
+					 -borderwidth => $borderwidth,
+					 -background => $bgcolor,
+		       -command => sub{execute_select_query($labelptr)})
+	-> pack (-side => 'left');
+    my $b1 = $mw -> Balloon (-initwait => $balloonwait);
+    $b1 -> attach ($selectbutton, -balloonmsg => 'Execute SELECT query.'); 
+
+    my $execbutton = $frame -> Button (-image => $enterpixmap,
+			       -relief => $relief,
+			       -borderwidth => $borderwidth,
+			       -background => $bgcolor,
+		       -command => sub{execute_insert_query($labelptr)})
+	-> pack (-side => 'left');
+    my $b2 = $mw -> Balloon (-initwait => $balloonwait);
+    $b2 -> attach ($execbutton, -balloonmsg => 'Execute INSERT query.'); 
+    my $textbutton = $frame -> Button (-image => $textbuttonpixmap,
+				       -relief => $relief,
+				       -borderwidth => $borderwidth,
+				       -background => $bgcolor,
+		       -command => sub{execute_text_query ($labelptr)})
+	-> pack (-side => 'left');
+    my $b3 = $mw -> Balloon (-initwait => $balloonwait);
+    $b3 -> attach ($textbutton, -balloonmsg => 'Enter a SQL text query.'); 
+
+    $tablepane -> Advertise ('controlbuttons' => $frame);
+    return $frame;
+}
+
+sub columnselectframe {
+    my (@columns) = @_;
+    my ($b, $e, $labelwidth, $maxwidth);
+    my $mframe = $tablepane -> Frame (-borderwidth => $borderwidth,
+			       -relief => $relief,
+			       -background => $bgcolor) -> pack;
+    
+    # Find the longest column label width.
+    $labelwidth = 0;
+    $maxwidth = 0;
+    foreach my $c (@columns) {
+	$labelwidth = length ($c);
+	$maxwidth = $labelwidth if $labelwidth > $maxwidth;
+    }
+
+    foreach my $c (@columns) {
+	$sframe = $mframe -> Frame( -borderwidth => 0,
+				   -relief => $relief,
+				   -background => $bgcolor)
+	    -> pack (-side => 'left');
+	$b = $sframe -> 
+	    Checkbutton ( -text => $c,
+			 -font => $dsnnormalfont,
+			 -relief => $relief,
+			 -width => $maxwidth,
+			 -borderwidth => 2,
+			 -background => $bgcolor) ->
+			 pack (-side => 'top', -padx => 5, -pady => 5);
+	$tablepane -> Advertise ("cb_$c" => $b);
+	$e = $sframe ->
+	    Entry (-width => $maxwidth,
+		   -font => $dsnnormalfont,
+		   -relief => 'sunken',
+		   -background => $bgcolor) 
+		-> pack (-expand => 1, -fill => 'x', 
+			 -padx => 5, -pady => 5);
+	$tablepane -> Advertise ("en_$c" => $e);
+    }
+    $tablepane -> Advertise ('selectframe' => $mframe);
+    return $mframe;
+} 
+
+sub drawtablepaneselectform {
+    my $pane = $_[0];
+    my $label = $_[1];
+    my ($x_org, $y_org, $buttons, $columns);
+    $x_org = 5;
+    $y_org = 5;
+    # Delete forms from the previous selection first
+    foreach my $w (qw/controlbuttons selectframe  setsizelabel resultslist/) {
+	$tablepane -> delete ($tablepanetags{$w}) 
+	    if defined $tablepane -> Subwidget ($w);
+    }
+    $buttons = tablepanecontrolbuttons ($label);
+    $tablepanetags {'controlbuttons'} = 
+	$pane -> createWindow ($x_org, $y_org, -anchor => 'nw',
+				   -window => $buttons);
+    $columns = columnselectframe(@{$label -> {columns}});
+    $y_org += ($buttons -> cget(-height)) + ($imagepadding * 3);
+    $tablepanetags{'selectframe'} = 
+	$pane -> createWindow ($x_org, $y_org, -anchor => 'nw',
+			       -window => $columns);
+}
+
+sub drawdsnpane {
+    my $pane = $_[0];
+
+    my $insert_y_org = 5;
+    my $label_length;
+
+    # First erase the canvas
+    foreach my $h (@hostlabels) {
+	$pane -> delete ($h -> {image_id}) if $h -> {image_id} != 0;
+	$pane -> delete ($h -> {text_id}) if $h -> {text_id} != 0;
+    }
+
+    foreach my $label (@hostlabels) {
+	if (length ($label -> {table}) ) { # Draw table
+	    $label -> {image_id} = 
+		$pane -> createImage ($table_indent, 
+				      $insert_y_org,
+				      -image => $tablepixmap,
+				      -anchor => 'nw');
+	    $label -> {text_id} = 
+		$pane -> createText ($table_indent + $tablexpmwidth
+				     + $imagepadding,
+				     $insert_y_org,
+				     -text => $label -> {table},
+				     -anchor => 'nw',
+				     -font => $dsnnormalfont);
+				     
+	    $label_length = 
+		($normalfontmetric -> measure ($label -> {table})) +
+					   $tablexpmwidth +
+					   $imagepadding;
+						       
+	    $label -> {x_org} = $table_indent;
+	    $label -> {y_org} = $insert_y_org;
+	    $label -> {x_bound} = $table_indent + $label_length;
+	    $label -> {y_bound} = $insert_y_org + $tablexpmheight;
+	    $insert_y_org += $imagepadding + $tablexpmheight;
+	} elsif (length ($label -> {dsn}) ) { # Draw dsn
+	    $label -> {image_id} = 
+		$pane -> createImage ($dsn_indent, 
+				      $insert_y_org, 
+				      -image => $dsnpixmap,
+				      -anchor => 'nw');
+	    
+	    $label -> {text_id} = 
+		$pane -> 
+		    createText ($dsn_indent + $dsnxpmwidth + $imagepadding, 
+				$insert_y_org, 
+				-text => $label -> {dsn}, 
+				-anchor => 'nw',
+				-font => $dsnnormalfont);
+	    $label_length = 
+		($normalfontmetric -> measure ($label -> {dsn})) +
+					   $dsnxpmwidth +
+					   $imagepadding;
+						       
+	    $label -> {x_org} = $dsn_indent;
+	    $label -> {y_org} = $insert_y_org;
+	    $label -> {x_bound} = $dsn_indent + $label_length;
+	    $label -> {y_bound} = $insert_y_org + $dsnxpmheight;
+	    $insert_y_org += $imagepadding + $dsnxpmheight;
+	} else { # Draw the host label
+	    local $image;
+	    if ($label -> {connect_status} =~ m"$HOST_NOT_CONNECTED") {
+		$image = $notermpixmap;
+	    } else {
+		$image = $termpixmap;
+	    }
+	    $label -> {image_id} = 
+		$pane -> createImage ($host_indent, 
+				      $insert_y_org, 
+				      -image => $image,
+				      -anchor => 'nw');
+	    $label -> {text_id} = $pane -> 
+		createText ($host_indent + $termxpmwidth + $imagepadding, 
+			    $insert_y_org, 
+			    -text => $label -> {host}, 
+			    -anchor => 'nw',
+			    -font => $dsnnormalfont);
+	    $label_length = 
+		($normalfontmetric -> measure ($label -> {host})) +
+					   $termxpmwidth +
+					   $imagepadding;
+						       
+	    $label -> {x_org} = $host_indent;
+	    $label -> {y_org} = $insert_y_org;
+	    $label -> {x_bound} = $host_indent + $label_length;
+	    $label -> {y_bound} = $insert_y_org + $termxpmheight;
+	    $insert_y_org += $imagepadding + $termxpmheight;
+	}
+    } # foreach my $label (@hostlabels)
+}
+
+sub execute_text_query {
+    my ($labelptr) = @_;
+    my @stdargs = ();
+    my $qdialog = 
+	new MainWindow ( -title => 'SQL Query');
+    my $qtextbox = $qdialog -> Scrolled('Text',
+                        -height => 15, -width => 60,
+                        -scrollbars => 'osoe',
+                        -font => $dsnnormalfont,
+                        @stdargs) ->
+		grid (-row => 1, -column => 1, -columnspan => 2);
+    $qtextbox -> Subwidget ('xscrollbar') -> configure (-width => 10);
+    $qtextbox -> Subwidget ('yscrollbar') -> configure (-width => 10);
+    $qtextbox -> insert ('end', $userquerytext);
+    $qdialog -> Advertise ('qtextbox' => $qtextbox);
+
+    my $acceptbutton => $qdialog -> Button (-text => 'Submit',
+               -font => $dsnnormalfont,
+               -height => 1, -width => 10,
+               -command => sub {sql_query ($qdialog, $labelptr)},
+               @stdargs) -> 
+        grid (-row => 2, -column => 1);
+    my $dismissbutton => $qdialog -> Button (-text => 'Dismiss',
+               -font => $dsnnormalfont,
+               -height => 1, -width => 10,
+               -command => sub {$qdialog -> WmDeleteWindow},
+               @stdargs) -> 
+       grid (-row => 2, -column => 2);
+}
+
+sub sql_query {
+    my ($w, $labelptr) = @_;
+    $mw -> Busy;
+    $userquerytext = 
+	$labelptr -> {query} = 
+	$w -> Subwidget ('qtextbox') -> get ('0.0', 'end');
+    $labelptr -> {query} =~ s/\n/ /gsm;
+    print 'sql_query: ' . $labelptr -> {query} . "\n" if $debug;
+    my $resultarrayref = query_db ($labelptr);
+    display_result_set ($labelptr, $resultarrayref);
+    $w -> WmDeleteWindow;
+    $mw -> Unbusy;
+}
+
+sub execute_select_query {
+    my ($labelptr) = @_;
+    $mw -> Busy;
+    my (@col_selectors, @predicates); # Refs of the check button and
+                                      # entry widgets at the top of
+                                      # the frame.
+    my ($query, $tmplabel, $resultarrayref);
+    for my $k (keys %{$tablepane -> {SubWidget}}) {
+	if ($k =~ /cb_/) {
+	    push @col_selectors, ($tablepane -> Subwidget ($k));
+	    ($tmplabel) = ($k =~ /cb_(.*)/);
+	    push @predicates, ($tablepane -> Subwidget ("en_$tmplabel"));
+	}
+    }
+    $labelptr -> {query} = 
+	build_select_query ($labelptr, \@col_selectors, \@predicates);
+    $resultarrayref = query_db ($labelptr);
+    display_result_set ($labelptr, $resultarrayref);
+    $mw -> Unbusy;
+}
+
+sub execute_insert_query {
+    my ($labelptr) = @_;
+    $mw -> Busy;
+    my (@col_selectors, @predicates); # Refs of the check button and
+                                      # entry widgets at the top of
+                                      # the frame.
+    my ($query, $tmplabel, $resultarrayref);
+    for my $k (keys %{$tablepane -> {SubWidget}}) {
+	if ($k =~ /cb_/) {
+	    push @col_selectors, ($tablepane -> Subwidget ($k));
+	    ($tmplabel) = ($k =~ /cb_(.*)/);
+	    push @predicates, ($tablepane -> Subwidget ("en_$tmplabel"));
+	}
+    }
+    $labelptr -> {query} = 
+	build_insert_query ($labelptr, \@col_selectors, \@predicates);
+    $resultarrayref = query_db ($labelptr);
+    display_result_set ($labelptr, $resultarrayref);
+    $mw -> Unbusy;
+}
+
+sub display_result_set {
+    my $labelptr = $_[0];
+    my $resultarrayref = $_[1];
+    my (@maxwidths, $rref, $cidx, $rowtext, $coltext);
+    my ($resultslist, @selectedcolumns, $selectortext);
+    my $y_org = ($tablepane -> Subwidget ('controlbuttons') -> height) +
+	($tablepane -> Subwidget ('selectframe') -> height) + 
+	($imagepadding * 3);
+
+    # Erase the previous results if any
+    foreach my $w (qw/setsizelabel resultslist/) {
+	$tablepane -> delete ($tablepanetags{$w})
+	    if defined $tablepane -> Subwidget ($w);
+    }
+
+    my $nrows = $#{$resultarrayref}; 
+    my $ncols = $#{${$resultarrayref}[0]};
+    $nrows = 0 if $nrows == -1;
+    $ncols = 0 if $ncols == -1;
+    my $setsizetext = $nrows  . ' rows, ' . ($ncols + 1) . 
+       ' columns in result set.';
+
+    my $setsizelabel = $tablewidget -> Label (-text => $setsizetext,
+					      -font => $dsnnormalfont,
+					      -background => $bgcolor);
+    $tablepane -> Advertise ('setsizelabel' => $setsizelabel);
+    $tablepanetags{'setsizelabel'} = 
+    $tablepane -> createWindow ( 10, $y_org, -window => $setsizelabel,
+				 -anchor => 'nw');
+
+    print 'display_result_set: query '. $labelptr -> {query} . "\n"
+      if $debug;
+
+    return if ! $nrows;
+
+    if ($labelptr -> {query} =~ /select +\*/) {
+	push @selectedcolumns, @{$labelptr -> {columns}};
+    } else { # extract the column selectors from the query text.
+	($selectortext) = ($labelptr -> {query} =~ /select (.*) from/);
+	@selectedcolumns = split /\, *?/, $selectortext;
+    }
+
+    # Find maximum width of each column, first the headings,
+    # then the results.
+    for ( $cidx = 0; $cidx <= $#selectedcolumns; $cidx++) {
+        $maxwidths[$cidx] = 
+	    length ( trimstr ($selectedcolumns[$cidx]) ); 
+    }
+    foreach $rref (@{$resultarrayref}) {
+        for ( $cidx = 0; $cidx <= $#selectedcolumns; $cidx++) {
+	    $maxwidths[$cidx] = length ( trimstr (${$rref}[$cidx] ) ) 
+              if length ( trimstr (${$rref}[$cidx] ) ) > $maxwidths[$cidx];
+        }    
+    }
+
+    $resultslist = $tablewidget -> Listbox ( -height => $nrows + 1,
+						-background => $bgcolor,
+						-font => $resultsfont,
+						-relief => $relief );
+    # Insert the column headings first.
+
+    $rowtext = '';
+    for ( $cidx = 0; $cidx <= $#selectedcolumns; $cidx++) {
+	$coltext = trimstr ($selectedcolumns[$cidx]);
+        $coltext .= ' ' x ($maxwidths[$cidx] - length ($coltext));
+        $rowtext .= "$coltext  ";
+    }
+    # resize the listbox
+    $resultslist -> configure ( -width => length ($rowtext)) 
+      if ($resultslist -> cget (-width)) < length ($rowtext);
+    $resultslist -> insert ('end', $rowtext); 
+
+    # Then insert the data.
+    foreach $rref (@{$resultarrayref}) {
+	$rowtext = '';
+	for (my $cidx = 0; $cidx <= $#{$rref}; $cidx++) {
+            $coltext = trimstr (${$rref}[$cidx]);
+            $coltext .= ' ' x ($maxwidths[$cidx] - length ($coltext) );
+	    $rowtext .= "$coltext  ";
+	}
+        $resultslist -> configure ( -width => length ($rowtext)) 
+          if ($resultslist -> cget (-width)) < length ($rowtext);
+        $resultslist -> insert ('end', $rowtext); 
+    }
+
+    $tablepane -> Advertise ('resultslist' => $resultslist);
+    $y_org += ($setsizelabel -> height) + ($imagepadding * 6);  
+    $tablepanetags{'resultslist'} = 
+      $tablepane -> createWindow ( 10, $y_org, -window => $resultslist,
+				 -anchor => 'nw');
+}
+
+sub trimstr { 
+    my ($s) = $_[0];
+    $s =~ s/ *$//;
+    return $s;
+}
+
+sub build_select_query {
+    my ($labelptr, $col_selectors, $predicates) = @_;
+    my ($localparam, $querystring, @selectedfields, %qpreds);
+    my ($tmppred, $npreds, $predtext, $predlabel);
+    $npreds = 0;
+    # Go through all the headings so that the selectors get listed in
+    # the right order....
+    foreach my $heading (@{$labelptr -> {columns}}) {
+	for (my $i = 0; $i <= $#{$col_selectors}; $i++) {
+	    no warnings;  # in case Value is undef
+	    if ( (${$col_selectors}[$i] -> {Value} eq '1') &&
+		( ${$col_selectors}[$i] -> cget ('-text') =~ m"$heading") ) {
+	            push @selectedfields, 
+		        (${$col_selectors}[$i] -> cget ('-text'));
+            }
+            $predtext = ${$predicates}[$i] -> get;
+            $predlabel = ${$col_selectors}[$i] -> cget ('-text');
+            if (defined $predtext and length ($predtext)) {
+	        $qpreds{$predlabel} = $predtext;
+                $npreds++;
+            }
+	    use warnings;
+        }
+    }
+    $querystring = 'select ';
+    for (my $i = 0; $i <= $#selectedfields; $i++) {
+	$querystring .= $selectedfields[$i] . ', ' if $i < $#selectedfields;
+	$querystring .= $selectedfields[$i] . ' ' if $i == $#selectedfields;
+    }
+
+    # No fields selected by user, so select all of them in query.
+    if ($#selectedfields == -1) {
+	$querystring .= ' * ';
+    }
+
+    $querystring .= 'from ' . $labelptr -> {table};
+    $querystring .= ' where (' if $npreds;
+    foreach my $k (keys %qpreds) {
+	$querystring .= "$k " . $qpreds{$k} . ' and ';
+    }
+    # remove the final 'and'
+    $querystring =~ s/ and $// if $npreds;
+    $querystring .= ')' if $npreds;
+    print "build_select_query: query $querystring\n" if $debug;
+    return $querystring;
+}
+
+sub build_insert_query {
+    my ($labelptr, $col_selectors, $predicates) = @_;
+    my ($querystring, $tmptext);
+    my $valuestring = '';
+    # Go through all the headings so that the values get concatenated
+    # in the right order....
+    foreach my $heading (@{$labelptr -> {columns}}) {
+	for (my $i = 0; $i <= $#{$col_selectors}; $i++) {
+	    if ( ${$col_selectors}[$i] -> cget ('-text') =~ m"$heading" ) {
+	            $tmptext = ${$predicates}[$i] -> get;
+                    if (defined $tmptext and length ($tmptext)) {
+			$valuestring .= "\'$tmptext\'\,";
+		    } else {
+			$valuestring .= "\'\'\,";
+		    }
+            }
+        }
+    }
+    # Remove the trailing comma from values
+    $valuestring =~ s/\,$//;
+    $querystring = 'insert into ' . $labelptr -> {table} . 
+    ' values (' . $valuestring . ')';
+    print "build_insert_query: query $querystring\n" if $debug;
+    return $querystring;
+}
+
+sub query_db {
+    my $labelptr = $_[0];
+    my ($r, $evh, $cnh, $sth);
+    my ($nrows, $ncols, @rowarray, $colarrayref);
+    my ($result_text, $length_result);
+    my ($peerusername, $peerpassword) = split /::/, 
+        $peers{$labelptr -> {host}};
+    my $c = peer_client_login ($labelptr -> {host},
+				    $peerusername,
+				    $peerpassword);
+    if ($debug) {
+	print "query_db: error $c\n" if $c =~ m"$CLIENT_LOGIN_ERROR";
+    }
+
+    $evh =  $c -> sql_alloc_handle ($SQL_HANDLE_ENV, $SQL_NULL_HANDLE);
+    $r = $c -> 
+	sql_set_env_attr ($evh, $SQL_ATTR_ODBC_VERSION, $SQL_OV_ODBC2, 0);
+    if (defined $evh) { 
+	$r = $c -> 
+	    sql_set_env_attr 
+		($evh, $SQL_ATTR_ODBC_VERSION, $SQL_OV_ODBC2, 0);
+    } else {
+	odbc_diag_message ($c, $SQL_HANDLE_ENV, $evh, 
+			   'query_db', 'sql_set_env_attr');
+	return 1;
+    }
+    $cnh = $c -> sql_alloc_handle ($SQL_HANDLE_DBC, $evh);
+    if (! defined $cnh) {
+	odbc_diag_message ($c, $SQL_HANDLE_ENV, $evh, 
+			   'query_db', 'sql_alloc_handle (cnh)');
+	return 1;
+    }
+    $r = $c -> sql_connect ($cnh, $labelptr -> {dsn}, 
+			    length($labelptr -> {dsn}),
+			    $labelptr -> {login_name}, 
+			    length($labelptr -> {login_name}), 
+			    $labelptr -> {password}, 
+			    length($labelptr -> {password}));
+    if ($r != $SQL_SUCCESS) {
+	odbc_diag_message ($c, $SQL_HANDLE_DBC, $cnh,
+			   'query_db', 'sql_connect');
+	return 1;
+    }
+
+    $sth = $c -> sql_alloc_handle ($SQL_HANDLE_STMT, $cnh);
+    if (! defined $sth) {
+	odbc_diag_message ($c, $SQL_HANDLE_DBC, $cnh, 
+			   'query_db', 'sql_alloc_handle (sth)');
+	return 1;
+    }
+    
+    $r = $c -> sql_exec_direct ($sth, 
+				$labelptr -> {query}, 
+				length ($labelptr -> {query}) );
+    if ($r != 0) {
+	odbc_diag_message ($c, $SQL_HANDLE_STMT, $sth, 
+			   'query_db', 'sql_exec_direct');
+    } else {
+	($r, $nrows) = $c -> sql_row_count ($sth);
+	if ($r != 0) {
+	    odbc_diag_message ($c, $SQL_HANDLE_STMT, $sth,
+			       'query_db', 'sql_row_count');
+	}
+	($r, $ncols) = $c -> sql_num_result_columns ($sth);
+	if ($r != 0) {
+	    odbc_diag_message ($c, $SQL_HANDLE_STMT, $sth,
+			       'query_db', 'sql_num_result_columns');
+	}
+	print "query_db result: rows $nrows, cols $ncols\n" if $debug;
+	my $rfetch = $SQL_SUCCESS;
+	while ($rfetch == $SQL_SUCCESS) {
+		$rfetch = $c -> sql_fetch ($sth);
+		$colarrayref = new_array_ref();
+		for ( my $col = 1; $col <= $ncols; $col++) {
+		    ($r, $result_text, $length_result) = 
+			$c -> sql_get_data ($sth, $col, $SQL_CHAR, 65536);
+		    if ($r == $SQL_ERROR) {
+			odbc_diag_message ($c, $SQL_HANDLE_STMT, $sth,
+					   'query_db', 'sql_get_data');
+			return;
+		    }
+		    $$colarrayref[$col - 1] = $result_text;
+		} # for (my $col...
+		push @rowarray, ($colarrayref);
+	} # while
+    } # sql_exec_direct
+
+    $r = $c -> sql_free_handle ($SQL_HANDLE_STMT, $sth);
+    if ($r != $SQL_SUCCESS) {
+	odbc_diag_message ($c, $SQL_HANDLE_STMT, $sth,
+			   'query_db', 'sql_free_handle');
+	return 1;
+    }
+
+    no warnings;
+    $r = $c -> sql_disconnect ($cnh);
+    if ($r != $SQL_SUCESS) {
+	odbc_diag_message ($c, $SQL_HANDLE_DBC, $cnh,
+			   'query_db', 'sql_disconnect');
+	return 1;
+    }
+
+    $r = $c -> sql_free_connect ($cnh);
+    if ($r != $SQL_SUCESS) {
+	odbc_diag_message ($c, $SQL_HANDLE_DBC, $cnh,
+			   'query_db', 'sql_free_connect');
+	return 1;
+    }
+    $r = $c -> sql_free_handle ($SQL_HANDLE_ENV, $evh);
+    if ($r != $SQL_SUCESS) {
+	odbc_diag_message ($c, $SQL_HANDLE_ENV, $evh,
+			   'query_db', 'sql_free_handle (evh)');
+	return 1;
+    }
+    use warnings;
+    return \@rowarray;
+}
+
+sub odbc_diag_message {
+    my ($c, $handletype, $handle, $func, $unixodbcfunc) = @_;
+    my ($rerror, $sqlstate, $native, $etext, $elength);
+    ($rerror, $sqlstate, $native, $etext, $elength) = 
+	$c -> sql_get_diag_rec ($handletype, $handle, 1, 255);
+    error_dialog ($mw, "[$func][$unixodbcfunc]$etext");
+}
+
+sub new_dsnlabel {
+    my $dsnlabel = 
+    {
+	host => '',
+	dsn => '',
+	table => '',
+	x_org => 0,
+	y_org => 0,
+	x_bound => 0,
+	y_bound => 0,
+	text_id => 0,
+	image_id => 0,
+	connect_status => '',
+	# if it's a dsn or tables in dsn
+	login_name => '',
+	password => '',
+	# Array ref of column names in table elements
+	columns => undef,
+        # Most recent SQL query.
+        query => undef
+	};
+    return $dsnlabel;
+}
+
+sub new_array_ref { my @a; return \@a; }
+
+sub peer_client_login {
+    my ($peer, $peerusername, $peerpassword) = @_;
+    my @clienterror;
+    print "peer_client_login: host $peer, user $peerusername\n" if $debug;
+    my $client =
+	eval { RPC::PlClient->new('peeraddr' => $peer,
+                          'peerport' => $peerport,
+                          'application' => 'RPC::PlServer',
+                          'version' => $UnixODBC::VERSION,
+                          'user' => $peerusername,
+				  'password' => $peerpassword)};
+	  
+    if ($@) { 
+	print STDERR "Could not create client object: $@\n" if $debug;
+	return $CLIENT_LOGIN_ERROR;
+    }
+
+    $c = $client -> ClientObject ('BridgeAPI', 'new');
+    if (ref $c ne 'RPC::PlClient::Object::BridgeAPI' ) {
+	return $CLIENT_LOGIN_ERROR;
+    } else {
+	return $c;
+    }
+}
+
+sub getdsns {
+    my ($peer) = $_[0];
+    my @dsnarray;
+    my ($evh, $cnh);
+    my ($r, $dsn, $dsnlength, $driver, $driverlength);
+    my ($text, $textlen, $native, $sqlstate);
+    return if (! defined $peer or ! length ($peer));
+    my ($peerusername, $peerpassword) = split /::/, $peers{$peer};
+    my $c = peer_client_login ($peer, $peerusername, $peerpassword);
+    if ($c =~ m"$CLIENT_LOGIN_ERROR") {
+	push @dsnarray, ("$HOST_NOT_CONNECTED");
+	return @dsnarray;
+    }
+
+    $evh =  $c -> sql_alloc_handle ($SQL_HANDLE_ENV, $SQL_NULL_HANDLE);
+    $r = $c -> 
+	sql_set_env_attr ($evh, $SQL_ATTR_ODBC_VERSION, $SQL_OV_ODBC2, 0);
+
+    ($r, $dsn, $dsnlength, $driver, $driverlength) = 
+	$c -> sql_data_sources ($evh, $SQL_FETCH_FIRST, 255, 255);
+    push @dsnarray, ($dsn);
+    while (1) {
+	($r, $dsn, $dsnlength, $driver, $driverlength) = 
+	    $c -> sql_data_sources ($evh, $SQL_FETCH_NEXT, 255, 255);
+	last unless $r == $SQL_SUCCESS;
+	push @dsnarray, ($dsn);
+    }
+
+    $r = $c -> sql_free_handle ($SQL_HANDLE_DBC, $cnh);
+    $r = $c -> sql_free_handle ($SQL_HANDLE_ENV, $evh);
+
+    return @dsnarray;
+}
+
+sub describe_table {
+    my ($labelptr) = @_;
+    my ($r, $evh, $cnh, $sth, @columnnames);
+    my ($sqlstate, $native, $text, $textlen);
+    my ($peerusername, $peerpassword) = split /::/, 
+         $peers{$labelptr -> {host}};
+    my $c = peer_client_login ($labelptr -> {host}, 
+			       $peerusername, $peerpassword);
+    if ($c =~ m"$CLIENT_LOGIN_ERROR") {
+	return $HOST_NOT_CONNECTED;
+    }
+
+    $evh =  $c -> sql_alloc_handle ($SQL_HANDLE_ENV, $SQL_NULL_HANDLE);
+    if (defined $evh) { 
+	$r = $c -> 
+	    sql_set_env_attr 
+		($evh, $SQL_ATTR_ODBC_VERSION, $SQL_OV_ODBC2, 0);
+    } else {
+	odbc_diag_message ($c, $SQL_HANDLE_ENV, $evh, 
+			   'describe_table', 'sql_set_env_attr');
+	return 1;
+    }
+    $cnh = $c -> sql_alloc_handle ($SQL_HANDLE_DBC, $evh);
+    if (! defined $cnh) {
+	odbc_diag_message ($c, $SQL_HANDLE_ENV, $evh, 
+			   'describe_table', 'sql_alloc_handle (cnh)');
+	return 1;
+    }
+
+    $r = $c -> sql_connect ($cnh, $labelptr -> {dsn}, 
+			    length($labelptr -> {dsn}),
+			    $labelptr -> {login_name}, 
+			    length($labelptr -> {login_name}), 
+			    $labelptr -> {password}, 
+			    length($labelptr -> {password}));
+    if ($r != $SQL_SUCCESS) {
+	odbc_diag_message ($c, $SQL_HANDLE_DBC, $cnh, 
+			   'describe_table', 'sql_connect');
+	return 1;
+    }
+
+    $sth = $c -> sql_alloc_handle ($SQL_HANDLE_STMT, $cnh);
+    if (! defined $sth) {
+	odbc_diag_message ($c, $SQL_HANDLE_DBC, $cnh, 
+			   'describe_table', 'sql_alloc_handle (sth)');
+	return 1;
+    }
+
+    $r = $c -> sql_columns ($sth, '', 0, '', 0, 
+			    $labelptr -> {table},
+			    length ($labelptr -> {table}),
+			    '', 0);
+    while (1) {
+	$r = $c -> sql_fetch ($sth);
+	last if $r == $SQL_NO_DATA;
+	if ($r != $SQL_SUCCESS) {
+	    odbc_diag_message ($c, $SQL_HANDLE_STMT, $sth, 
+			       'describe_table', 'sql_fetch');
+	    return 1;
+	} 
+
+	($r, $text, $textlen) = 
+	    $c -> sql_get_data ($sth, 4, $SQL_C_CHAR, 255);
+	last if $r == $SQL_NO_DATA;
+	push @columnnames, ($text);
+	if ($r != $SQL_SUCCESS) {
+	    odbc_diag_message ($c, $SQL_HANDLE_STMT, $sth, 
+			       'describe_table', 'sql_get_data');
+	    return 1;
+	} 
+    }
+
+    $r = $c -> sql_free_handle ($SQL_HANDLE_STMT, $sth);
+    if ($r != $SQL_SUCCESS) {
+	odbc_diag_message ($c, $SQL_HANDLE_STMT, $sth, 
+			   'describe_table', 'sql_free_handle (sth)');
+	return 1;
+    }
+
+    no warnings;
+    $r = $c -> sql_disconnect ($cnh);
+    if ($r != $SQL_SUCESS) {
+	odbc_diag_message ($c, $SQL_HANDLE_DBC, $cnh, 
+			   'describe_table', 'sql_disconnect');
+	return 1;
+    }
+
+    $r = $c -> sql_free_connect ($cnh);
+    if ($r != $SQL_SUCESS) {
+	odbc_diag_message ($c, $SQL_HANDLE_DBC, $cnh, 
+			   'describe_table', 'sql_free_connect');
+	return 1;
+    }
+    $r = $c -> sql_free_handle ($SQL_HANDLE_ENV, $evh);
+    if ($r != $SQL_SUCESS) {
+	odbc_diag_message ($c, $SQL_HANDLE_ENV, $evh, 
+			   'describe_table', 'sql_free_handle (evh)');
+	return 1;
+    }
+    use warnings;
+    return @columnnames;
+}
+
+getpeerlogins();
+getdsns();
+dsntree ($dsnpane);
+
+MainLoop;
+
+=head1 NAME
+
+  tkdm - Multi-host data manager written in Perl for UnixODBC.pm
+
+=head1 DESCRIPTION
+
+Tkdm is a personal, multi-host ODBC data manager that uses
+Perl/Tk for its user interface, and UnixODBC::BridgeServer.pm
+and its configuration files for network communication.  Refer
+to the UnixODBC::BridgeServer man page and the README file 
+of the UnixODBC source code package for details of how to 
+configure multi-host ODBC communication.
+
+=head1 OPTIONS
+
+Tkdm recognizes the following command line options.
+
+=head2 --bgcolor
+
+Set the window background color.
+
+=head2 --debug
+
+Print debugging messages on the terminal.
+
+=head2 --displayfont font
+
+Set the font used for widget text.
+
+=head2 --help
+
+Print the command line help options and exit.
+
+=head2 --monofont font
+
+Set the monospaced font used to display columnar data.
+
+=head2 --relief style
+
+Set the widget relief style.  The "style" paramater may be one of:
+"raised," "sunken," "flat," "ridge," "solid," "groove," or "none."
+
+=head2 --selectedfont font
+
+Set the font to highlight selected widgets.
+
+=head1 Usage
+
+=head2 DSN Window
+
+The left-hand window of tkdm displays the network hosts and data
+sources that are available to the UnixODBC bridge server, which were
+configured when the UnixODBC libraries were installed.  If tkdm cannot
+connect to a host, it will display that host X-ed out.
+
+Clicking on one of the data source labels will cause tkdm to
+request the login user name and password for that data source.
+Once login is successful, you can click on one of the tables in 
+the data source's database, and tkdm will draw a query form for
+that table in the right-hand window.  Refer to the next section.
+
+=head2 Table Query Window
+
+The right hand window presents the controls for executing various
+types of queries, as well as selecting and inserting data.  
+
+The three buttons in the upper left-hand corner of the window,
+described here from left to right, perform the following functions:
+
+- Execute a SELECT query, modified using the field selectors and
+predicate inputs underneath the button.
+
+- Execute an INSERT query, using the data entered in the text entry
+boxes underneath the button.
+
+- Open a dialog box where the user can enter the text of a SQL query.
+
+Once the query is submitted, tkdm will display the number of rows and
+columns in the result set, and, if the query is a SELECT SQL query, 
+will print the result set in tabular form in the window.  
+
+=head1 Version Information and Credits
+
+Tkdm is part of the UnixODBC.pm package.  This version of tkdm
+is current as of UnixODBC.pm version 0.16.
+
+Written by: Robert Allan Kiesling <rkiesling@earthlink.net>.
+
+Licensed under the same terms as Perl.  Please refer to the
+file "Artistic" for details.
+
+=cut

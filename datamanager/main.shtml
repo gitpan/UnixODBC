@@ -1,0 +1,17 @@
+<HTML>
+ <BODY
+  BGCOLOR="#FFFFFF"
+  TEXT="#000000"
+ >
+<center>
+<img src="/icons/odbc.gif">
+<p>
+<font size="5">ODBC Data Manager</font><br>
+<p>
+Copyright &copy; 2002 by Robert Kiesling, rkiesling@earthlink.net.<br>
+Please read the file &quot;Artistic&quot; for
+licensing terms.
+</center>
+
+ </BODY>
+</HTML>

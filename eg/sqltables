@@ -1,0 +1,141 @@
+#!/usr/local/bin/perl 
+
+use UnixODBC qw(:all);
+use Getopt::Long;
+
+my $env;
+my $cnh;
+my $sth;
+my $r;
+
+## 
+## DSN, username, and password from command line arguments.
+##
+my $DSN;
+my $UserName;
+my $PassWord;
+
+my $usage=<<EOH;
+Usage: sqltables [--help] | [--dsn=DSN --user=username --password=password]
+  --help       Print this help and exit.
+  --dsn        Data source name.
+  --user       DBMS login name.
+  --password   DBMS login password.
+EOH
+
+GetOptions ('help' => \$help,
+	    'dsn=s' => \$DSN,
+	    'user=s' => \$UserName,
+	    'password=s' => \$PassWord);
+
+if ($help || (not length ($DSN)) || (not length ($UserName)) 
+	      || (not length ($UserName)) || (not length ($PassWord)))
+     {
+	 print $usage;
+	 exit 0;
+}
+
+my ($table_cat, $table_cat_len);
+my ($table_schem, $table_schem_len);
+my ($table_name, $table_name_len);
+my ($table_type, $table_type_len);
+my ($remarks, $remarks_len);
+
+$r = SQLAllocHandle ($SQL_HANDLE_ENV, $SQL_NULL_HANDLE, $evh);
+if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+    print "SQLAllocHandle evh: ";
+   &getdiagrec ($SQL_HANDLE_ENV, $evh);
+    exit 1;
+}
+
+$r = SQLSetEnvAttr($evh, $SQL_ATTR_ODBC_VERSION, $SQL_OV_ODBC2, 0);
+if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+    &getdiagrec ($SQL_HANDLE_ENV, $evh);
+    exit 1;
+}
+
+$r = SQLAllocHandle ($SQL_HANDLE_DBC, $evh, $cnh);
+if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+    &getdiagrec ($SQL_HANDLE_ENV, $evh);
+    exit 1;
+}
+
+$r = SQLConnect ($cnh, $DSN, $SQL_NTS,
+			    $UserName, $SQL_NTS,
+			    $PassWord, $SQL_NTS);
+if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+    &getdiagrec ($SQL_HANDLE_DBC, $cnh);
+    exit 1;
+}
+
+$r = SQLAllocHandle ($SQL_HANDLE_STMT, $cnh, $sth);
+if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+    &getdiagrec ($SQL_HANDLE_DBC, $cnh);
+    exit 1;
+}
+
+$r = SQLTables ($sth, '', 0, '', 0, '', 0, '', 0);
+if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+    &getdiagrec ($SQL_HANDLE_STMT, $sth);
+    exit 1;
+}
+
+while (1) {
+    $r = SQLFetch ($sth);
+    last if $r == $SQL_NO_DATA;
+    $r = SQLGetData ($sth, 1, $SQL_C_CHAR, $table_cat, 255, $table_cat_len);
+    $r = SQLGetData ($sth, 2, $SQL_C_CHAR, $table_schem, 255, $table_schem_len);
+    $r = SQLGetData ($sth, 3, $SQL_C_CHAR, $table_name, 255, $table_name_len);
+    $r = SQLGetData ($sth, 4, $SQL_C_CHAR, $table_type, 255, $table_type_len);
+    $r = SQLGetData ($sth, 5, $SQL_C_CHAR, $remarks, 255, $remarks_len);
+    if ($ARGV[0] eq '-v') {
+	print "$table_cat $table_schem $table_name $table_type $remarks\n";
+    } else {
+	print "$table_name\n";
+    }
+}
+if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+    &getdiagrec ($SQL_HANDLE_STMT, $sth);
+    exit 1;
+}
+
+$r = SQLFreeHandle ($SQL_HANDLE_STMT, $sth);
+if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+    &getdiagrec ($SQL_HANDLE_STMT, $sth);
+    exit 1;
+}
+
+$r = SQLDisconnect ($cnh);
+if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+    &getdiagrec ($SQL_HANDLE_DBC, $cnh);
+    exit 1;
+}
+
+$r = SQLFreeConnect ($cnh);
+if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+    &getdiagrec ($SQL_HANDLE_DBC, $cnh);
+    exit 1;
+}
+
+$r = SQLFreeHandle ($SQL_HANDLE_ENV, $evh);
+if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+    &getdiagrec ($SQL_HANDLE_ENV, $evh);
+    exit 1;
+}
+
+sub getdiagrec {
+    my ($handle_type, $handle) = @_;
+    my ($sqlstate, $native, $message_text, $mlen);
+    print 'SQLGetDiagRec: ';
+    $r = &UnixODBC::SQLGetDiagRec ($handle_type, $handle, 1, $sqlstate,
+				   $native, $message_text, 255,
+				   $mlen);
+    if ($r == $SQL_NO_DATA) { 
+	print "result \= SQL_NO_DATA\n";
+    } elsif (($r == 1) || ($r == 0)) { 
+     print "$message_text\n";
+    } else { 
+     print "sqlresult = $r\n";
+    }
+    return $r;
+}

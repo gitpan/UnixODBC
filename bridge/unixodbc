@@ -1,0 +1,22 @@
+#! /bin/sh
+
+# If necessary, change LD_LIBRARY_PATH to list the directories 
+# that contain all of the libraries that ODBC needs.
+LD_LIBRARY_PATH="/usr/lib:/usr/local/lib" ; export LD_LIBRARY_PATH
+
+case "$1" in
+  start)
+	echo "Starting ODBC bridge... "
+	/usr/local/sbin/odbcbridge &
+	;;
+  stop)
+	echo "Stopping ODBC bridge... "
+        kill `cat /usr/local/var/odbcbridge/odbcbridge.pid`
+	;;
+  *)
+	echo "Usage: unixodbc {start|stop|}" >&2
+	exit 1
+	;;
+esac
+
+exit 0
