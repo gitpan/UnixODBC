@@ -1,11 +1,11 @@
 #!/usr/local/bin/perl -w
 
-$VERSION=0.11;
+$VERSION=0.12;
 @EXPORT_OK=(qw/$VERSION/);
 
 use Tk;
-use Tk::Font;
-use Tk::Balloon;
+use Tk::widgets qw(Font Balloon Table);
+use Carp;
 use Getopt::Long;
 use UnixODBC qw(:all);
 use UnixODBC::BridgeServer;
@@ -15,6 +15,12 @@ my $loginsfile = $ENV{HOME}.'/.odbclogins';
 my %peers;  # Hash of host keys and value of login data from $loginsfile.
 my %hostdsns; # Hash of host keys with list of dsns for value.
 my $peerport = 9999;
+
+if (! -f $loginsfile) {
+    print STDERR "\nCould not open login information file $loginsfile.\n";
+    print STDERR "Refer to the man page \"man tkdm\" for information\n";
+    exit 255
+}
 
 ##
 ## Connection Status -
@@ -45,12 +51,14 @@ Options:
 --background <color>   Set the window background color.
 --debug                Print debugging messages.
 --displayfont <font>   Font used in labels.
+--height               Window height.
 --help                 Print this message and exit.
 --monofont <font>      Monospaced font for columnar results.
 --relief <style>       Change the widget relief highlights to
                        "style": "raised," "sunken," "flat," "ridge," 
                        "solid," "groove," or "none."
 --selectedfont <font>  Font for selected labels.
+--width                Window width.
 
 Refer to the man page ("man tkdm") for information.
 EOHELP
@@ -58,7 +66,7 @@ EOHELP
 #
 # Command Line Options
 #
-my $debug = 0;             # Print debuggin messages.
+my $debug = 0;             # Print debugging messages.
 my $background = 'white';  # Background color for widgets.
 my $relief = 'groove';     # How to draw the widget reliefs, 
                            # except for entry widgets.
@@ -67,13 +75,16 @@ my $help = 0;              # Print help and exit.
 my $balloonwait = 1000;    # 1 second
 my $dsnnormalfont = '-*-helvetica-medium-r-*-*-12-120-*-*-*-*-*-*';
 my $dsnselectedfont = '-*-helvetica-bold-r-*-*-12-120-*-*-*-*-*-*';
-# This should be monospaced so columns line up.
 my $resultsfont = '-*-courier-medium-r-*-*-12-120-*-*-*-*-*-*';
+my $mwheight = 400;
+my $mwwidth = 600;
 
 my $optresult = GetOptions ( "borderwidth=i" => \$borderwidth,
 			     "debug" => \$debug,
                              "displayfont=s" => \$dsnnormalfont,
 			     "background=s" => \$background,
+			     "height=i" => \$mwheight,
+			     "width=i" => \$mwwidth,
 			     "relief=s" => \$relief,
 			     "monofont=s" => \$resultsfont,
 			     "selectedfont=s" => \$dsnselectedfont,
@@ -334,10 +345,8 @@ static char *magick[] = {
 EODSNXPM
 use warnings;
 
-my $mw = new MainWindow (-title => 'Data Manager',
-			 -height => 350,
-			 -width => 500);
-
+my $mw = new MainWindow (-title => 'Data Manager', -height => $mwheight,
+			 -width => $mwwidth);
 my $textbuttonpixmap = $mw -> Pixmap ('textbutton', -data => $textbuttonxpm);
 $textbuttonxpmwidth = $textbuttonpixmap -> width;
 $textbuttonxpmheight = $textbuttonpixmap -> height;
@@ -364,8 +373,8 @@ my $dsnpane = $mw -> Scrolled ('Canvas', -background => $background,
 			       -scrollbars => 'se');
 $dsnpane -> Subwidget ($_) -> configure (-width => 10) 
     foreach (qw/xscrollbar yscrollbar/);
-# Direct access to canvas when ignoring the scrollbars...
-$kanvaswidget = $dsnpane -> Subwidget ('canvas');
+# Direct access to dsn canvas 
+$dsncanvas = $dsnpane -> Subwidget ('canvas');
 
 # Font objects for widget size measurement
 my ($family, $weight, $slant, $size) = 
@@ -391,29 +400,67 @@ my $tablepane = $mw -> Scrolled ('Canvas', -background => $background,
 $tablepane -> Subwidget ($_) -> configure (-width => 10) 
     foreach (qw/xscrollbar yscrollbar/);
 # Direct access to canvas for misc methods not in Canvas class...
-my $tablewidget = $tablepane -> Subwidget ('canvas');
-my $topmenu = $mw -> Menu (-type => 'normal', -tearoff => '',
-	Name => 'topMenu');
-$topmenu -> add ('command', -label => 'Exit', 
+my $tablecanvas = $tablepane -> Subwidget ('canvas');
+
+# Create a minimal menu for the canvases.
+my $canvasmenu = $mw -> Menu (-type => 'normal', -tearoff => '',
+			      Name => 'canvasMenu',
+			      -font => $dsnnormalfont);
+$canvasmenu -> add ('command', -label => 'About...', 
+		    -command => [\&about, $mw]);
+$canvasmenu -> add ('command', -label => 'Exit', 
 	-command => sub {$mw -> WmDeleteWindow});
 $dsnpane -> place (-x => 0, -y => 0, -relwidth => 0.4, -relheight => 1.0);
 $tablepane -> place (-relx => 0.40, -y => 0, -relwidth => 0.6, 
 	-relheight => 1.0);
+$mw -> Tk::bind ($dsncanvas, '<3>',
+	[\&postpopupmenu, $canvasmenu, Ev('X'), Ev('Y')]);
+$mw -> Tk::bind ($tablecanvas, '<3>',
+	[\&postpopupmenu, $canvasmenu, Ev('X'), Ev('Y')]);
 
-# Callback to pop up the menu.
-$mw -> bind ('<ButtonPress-3>',
-	[\&postpopupmenu, $topmenu, Ev('X'), Ev('Y')]);
-
-# All $dsnpane functions use this callback.
-$mw -> Tk::bind ($kanvaswidget, '<ButtonPress-1>', 
+$mw -> Tk::bind ($dsncanvas, '<ButtonPress-1>', 
 		  [\&dsnclick, $dsnpane, Ev('x'), Ev('y')]);
+
+# Modified Tk::Text menu, re-implemented in Perl space, with additions
+# that are in the canvas menu.
+my $textmenu = $mw -> Menu (-type => 'normal', -tearoff => '',
+			    Name => 'textMenu',
+			    -font => $dsnnormalfont);
+$textmenu -> add ('command', -label => 'About...', 
+		    -command => [\&about, $mw]);
+$textmenu -> add ('command', -label => 'Exit', 
+	-command => sub {$mw -> WmDeleteWindow});
+
+sub about {
+    my $mw = $_[0];
+    require Tk::Dialog;
+    my $abouttext = "Tkdm Version $VERSION\n" .
+	"Copyright \xa9 2002-2003 by Robert Allan Kiesling.\n" .
+	"Licensed using the same license as Perl.  Refer to the file " .
+	"\"Artistic\" for information.\n";
+    my $dialog = $mw -> Dialog (-title => 'About Tkdm',
+				-text => $abouttext,
+				-bitmap => 'info',
+				-buttons => [qw/Dismiss/]);
+    $dialog -> {SubWidget}{B_Dismiss} -> 
+	configure (-font => $dsnnormalfont);
+    $dialog -> {SubWidget}{message} -> 
+	configure (-font => $dsnnormalfont);
+    $dialog -> Show;
+}
 
 sub postpopupmenu {
     my $w = shift;
     my $menu = shift;
     my $x = shift;
     my $y = shift;
-    $menu -> post ($x, $y);
+    $menu -> Post ($x, $y);
+}
+
+sub unpostpopupmenu {
+    my $w = shift;
+    my $menu = shift;
+    $menu -> unpost;
 }
 
 sub dsnclick {
@@ -423,8 +470,8 @@ sub dsnclick {
     my $y = shift;
 
     my (@column_names);
-    $x = $kanvaswidget -> canvasx ($x);
-    $y = $kanvaswidget -> canvasy ($y);
+    $x = $dsncanvas -> canvasx ($x);
+    $y = $dsncanvas -> canvasy ($y);
 
     foreach my $label (@hostlabels) {
 	if ((($x >= $label -> {x_org}) && ($y >= $label -> {y_org}))
@@ -445,7 +492,7 @@ sub dsnclick {
 		    $dsnlastselected = $label -> {text_id};
 		    @column_names = describe_table ($label);
 		    $label -> {columns} = \@column_names;
-		    drawtablepaneselectform ($tablewidget, $label);
+		    drawtablepaneselectform ($tablecanvas, $label);
 		}
 		last;
 	    }
@@ -686,7 +733,6 @@ sub error_dialog {
 }
 
 sub getpeerlogins {
-    die "Can't find $loginsfile: $!\n" if ! -f $loginsfile;
     my ($line, $host, $userpwd);
     open LOGINS, $loginsfile or die "Can't open $loginsfile: $!\n";
     while (defined ($line = <LOGINS>)) {
@@ -725,7 +771,7 @@ sub dsntree {
 
 sub tablepanecontrolbuttons {
     my ($labelptr) = @_;
-    my $frame = $tablewidget -> Frame (-borderwidth => $borderwidth, 
+    my $frame = $tablecanvas -> Frame (-borderwidth => $borderwidth, 
 			      -relief => $relief,
 			      -height => 26,
 			      -background => $background) -> pack;
@@ -1005,11 +1051,15 @@ sub execute_insert_query {
 sub display_result_set {
     my $labelptr = $_[0];
     my $resultarrayref = $_[1];
-    my (@maxwidths, $rref, $cidx, $rowtext, $coltext);
+    my ($rref, $ridx, $cidx);
+    my ($textwidget, $textheight);
     my ($resultslist, @selectedcolumns, $selectortext);
     my $y_org = ($tablepane -> Subwidget ('controlbuttons') -> height) +
 	($tablepane -> Subwidget ('selectframe') -> height) + 
 	($imagepadding * 3);
+     my @textoptions = (-background, $background,
+			-wrap, 'none',
+			-relief, $relief);
 
     # Erase the previous results if any
     foreach my $w (qw/setsizelabel resultslist/) {
@@ -1024,7 +1074,7 @@ sub display_result_set {
     my $setsizetext = $nrows  . ' rows, ' . ($ncols + 1) . 
        ' columns in result set.';
 
-    my $setsizelabel = $tablewidget -> Label (-text => $setsizetext,
+    my $setsizelabel = $tablecanvas -> Label (-text => $setsizetext,
 					      -font => $dsnnormalfont,
 					      -background => $background);
     $tablepane -> Advertise ('setsizelabel' => $setsizelabel);
@@ -1044,47 +1094,41 @@ sub display_result_set {
 	@selectedcolumns = split /\, *?/, $selectortext;
     }
 
-    # Find maximum width of each column, first the headings,
-    # then the results.
-    for ( $cidx = 0; $cidx <= $#selectedcolumns; $cidx++) {
-        $maxwidths[$cidx] = 
-	    length ( trimstr ($selectedcolumns[$cidx]) ); 
-    }
-    foreach $rref (@{$resultarrayref}) {
-        for ( $cidx = 0; $cidx <= $#selectedcolumns; $cidx++) {
-	    $maxwidths[$cidx] = length ( trimstr (${$rref}[$cidx] ) ) 
-              if length ( trimstr (${$rref}[$cidx] ) ) > $maxwidths[$cidx];
-        }    
-    }
+    $resultslist = $tablecanvas -> Table ( -rows => $nrows + 1,
+                                           -columns => $#selectedcolumns + 1,
+                                           -scrollbars => 'osoe',
+                                           -background => $background,
+                                           -fixedrows => 1);
 
-    $resultslist = $tablewidget -> Listbox ( -height => $nrows + 1,
-						-background => $background,
-						-font => $resultsfont,
-						-relief => $relief );
-    # Insert the column headings first.
+     $cidx = 0; 
+     $resultslist -> put (1, $cidx++, $_) foreach (@selectedcolumns);
 
-    $rowtext = '';
-    for ( $cidx = 0; $cidx <= $#selectedcolumns; $cidx++) {
-	$coltext = trimstr ($selectedcolumns[$cidx]);
-        $coltext .= ' ' x ($maxwidths[$cidx] - length ($coltext));
-        $rowtext .= "$coltext  ";
-    }
-    # resize the listbox
-    $resultslist -> configure ( -width => length ($rowtext)) 
-      if ($resultslist -> cget (-width)) < length ($rowtext);
-    $resultslist -> insert ('end', $rowtext); 
-
-    # Then insert the data.
-    foreach $rref (@{$resultarrayref}) {
-	$rowtext = '';
-	for (my $cidx = 0; $cidx <= $#{$rref}; $cidx++) {
-            $coltext = trimstr (${$rref}[$cidx]);
-            $coltext .= ' ' x ($maxwidths[$cidx] - length ($coltext) );
-	    $rowtext .= "$coltext  ";
-	}
-        $resultslist -> configure ( -width => length ($rowtext)) 
-          if ($resultslist -> cget (-width)) < length ($rowtext);
-        $resultslist -> insert ('end', $rowtext); 
+     $ridx = 2;
+     foreach $rref (@{$resultarrayref}) {
+          for ($cidx = 0; $cidx <= $#{$rref}; $cidx++) {
+               if (${$rref}[$cidx] =~ /\n.*\n/) {
+                    $textheight = 5;
+                    $textwidget = $resultslist -> 
+                         Scrolled ('Text', -height => $textheight,
+			           -width => 20,
+			           -scrollbars => 'osoe',
+			           @textoptions);
+                    $textwidget -> Subwidget ($_) -> configure (-width => 10) 
+                        foreach (qw/xscrollbar yscrollbar/);
+               } else {
+                   $textheight = 1;
+                   $textwidget = $resultslist -> Text (-height => $textheight,
+		                                 -width => 20,
+					         @textoptions);
+               }
+               $mw -> Tk::bind ('Tk::Text', '<3>', '');
+               $mw -> Tk::bind ($textwidget, '<3>',
+				[\&postpopupmenu, 
+				 $textmenu, Ev('X'), Ev('Y')]);
+               $textwidget -> insert ('end', ${$rref}[$cidx]);
+               $resultslist -> put ($ridx, $cidx, $textwidget);
+         }
+         $ridx++;
     }
 
     $tablepane -> Advertise ('resultslist' => $resultslist);
@@ -1485,10 +1529,21 @@ sub describe_table {
     return @columnnames;
 }
 
-getpeerlogins();
-getdsns();
-dsntree ($dsnpane);
+sub init {
+    my $textid = $dsnpane -> createText (10, 10, 
+         -text => 'Logging in to peer hosts....',
+	 -anchor => 'nw',
+	 -font => $dsnnormalfont);
+    $mw -> Busy;
+    getpeerlogins ();
+    getdsns ();
+    dsntree ($dsnpane);
+    $mw -> Unbusy;
+    $dsnpane -> delete ($textid);
+}
 
+# Let the main window draw itself before trying to log in to peers.
+$mw -> after (500, \&init);
 MainLoop;
 
 =head1 NAME
@@ -1527,6 +1582,10 @@ Set the font used to display widget text.
 
 Display the command line options on the terminal and exit.
 
+=head2 --height <pixels>
+
+Window height.
+
 =head2 --monofont <font>
 
 Set the monospaced font used to display columnar data.
@@ -1540,7 +1599,23 @@ Set the widget relief style.  The "style" paramater may be one of:
 
 Set the font used to highlight selected widgets.
 
+=head2 --width <pixels>
+
+Window width.
+
 =head1 Usage
+
+The Datamanager contains two windows.  The left-hand window displays
+information about hosts, data sources, and, when logged in, tables
+in each data source.  
+
+The right-hand window provides forms and buttons to perform queries and 
+display results on the data source and table selected in the left-hand
+window.
+
+Clicking the right mouse button over most of the widgets displays a
+short menu with an About... dialog option and also an option to exit
+the data manager.
 
 =head2 DSN Window
 
@@ -1552,11 +1627,11 @@ $HOME/.odbclogins file (see below).
 If tkdm cannot connect to a host, it will display that host's icon
 X-ed out.
 
-Clicking on a data source label causes tkdm to request the login user
-name and password for that data source.  Once login is successful, you
-can click on one of the tables in the data source's database, and tkdm
-then draws a query form for that table in the right-hand window, 
-as described in the next section.
+Clicking on a data source label with the left mouse button causes tkdm
+to request the login user name and password for that data source.
+Once login is successful, you can click on one of the tables in the
+data source's database, and tkdm then draws a query form for that
+table in the right-hand window, as described in the next section.
 
 =head2 Table Query Window
 
@@ -1612,7 +1687,7 @@ group and other read permissions for the file, by using the command:
 
 =head1 VERSION INFORMATION AND CREDITS
 
-Version 0.11
+Version 0.12
 
 Tkdm is part of the UnixODBC.pm package.  
 

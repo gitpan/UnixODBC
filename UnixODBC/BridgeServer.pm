@@ -5,7 +5,7 @@
 
 use lib qw(blib/arch blib/lib);
 
-our $VERSION = '0.18';
+our $VERSION = '0.19';
 
 $| = 1;
 
@@ -1072,7 +1072,7 @@ applications.
 
 UnixODBC::BridgeServer.pm is part of the UnixODBC package.
 
-Version: 0.17
+Version: 0.19
 
 Written by: Robert Allan Kiesling <rkiesling@earthlink.net>
 

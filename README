@@ -10,6 +10,7 @@ UnixODBC.pm Installation
   - Installing the Web data manager
   - Example scripts 
   - Troubleshooting
+  - Copyright
 
 - Overview
 
@@ -364,4 +365,11 @@ ODBC systems.  Refer to the file "INSTALL" in the tkdm subdirectory.
     3. HTTP and CGI script errors are recorded in the HTTP server's 
     error log.
     
-  
+- Authorship and Copyright
+
+UnixODBC.pm is written by Robert Allan Kiesling
+<rkiesling@earthlink.net>
+
+Copyright 2002-2003 by Robert Allan Kiesling and licensed using
+the same terms as Perl.  Refer to the file "Artistic" for the 
+details.

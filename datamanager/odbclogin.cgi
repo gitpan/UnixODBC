@@ -1,19 +1,15 @@
 #!/usr/local/bin/perl -w
 
-use CGI;
-use CGI::Carp qw(fatalsToBrowser);
 use UnixODBC (':all');
 use UnixODBC::BridgeServer;
-# use Log::Agent;
 use RPC::PlClient;
 
-my $q = new CGI;
-#my $dsnquery = $ENV{'QUERY_STRING_UNESCAPED'};
-my $dsnquery = $ENV{'REQUEST_URI'};
-my ($host, $dsn) = ($dsnquery =~ /hostdsn=(.*)--(.*)/);
+my ($host, $dsn) = ($ENV{'REQUEST_URI'} =~ /hostdsn=(.*)--(.*)/);
 $dsn =~ s/\+/ /g;
 
 my $styleheader = <<END_OF_HEADER;
+Content-Type: text/html
+
 <!DOCTYPE html
 	PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
 	 "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
@@ -27,7 +23,17 @@ DIV.tablelist {margin-left: 4}
 DIV.loginmsg {margin-left: 10}
 </style>
 </head>
+<body bgcolor="white" text="blue">
+<center>
+<h1><img src="/icons/odbc.gif" hspace="5">
+Please log in:</h1>
+</center>
 END_OF_HEADER
+
+my $end_html = <<END_HTML;
+</body>
+</html>
+END_HTML
 
 no warnings;
 my $form = <<ENDOFFORM;
@@ -36,9 +42,9 @@ my $form = <<ENDOFFORM;
   <tr>
    <td>
     <label>User Name:</label><br>
-    <input type="text" name="username" value="$user"><br>
+    <input type="text" name="username" value=""><br>
     <label>Password:</label><br>
-    <input type="password" name="password" value="$password"><br>
+    <input type="password" name="password" value=""><br>
     <label>Host Name:</label><br>
     <input type="text" name="host" value="$host"><br>
     <label>Data Source:</label><br>
@@ -55,16 +61,7 @@ my $form = <<ENDOFFORM;
 ENDOFFORM
 use warnings;
 
-print $q -> header;
 print $styleheader;
-print qq|<body bgcolor="white" text="blue">\n|;
-print qq|<center>|;
-print qq|<h1><img src="/icons/odbc.gif" hspace="5">\n|;
-print qq|Please log in:</h1>\n|;
-print qq|</center>|;
 print $form;
-&endhtml;
+print $end_html;
 
-sub endhtml {
-    print $q -> end_html;
-}

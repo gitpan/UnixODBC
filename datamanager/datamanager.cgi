@@ -1,14 +1,12 @@
 #!/usr/local/bin/perl
 
-use CGI;
-use CGI::Carp qw(fatalsToBrowser);
 use UnixODBC (':all');
 use UnixODBC::BridgeServer;
 use RPC::PlClient;
 
 #
-# If you change the subdirectory where the data manager SHTML, HTML,
-# and graphics files are located, change the value of $folder here.
+# If you change the subdirectory where the data manager HTML
+# files are located, change the value of $folder here.
 # 
 my $folder='datamanager';
 
@@ -16,7 +14,7 @@ my $loginfile = '/usr/local/etc/odbclogins'; # File that contains login data.
 my %peers; # Peer host login data from /usr/local/etc/odbclogins
 
 my $peerport = 9999;
-my $loginmsg = '';
+my $loginmsg = 'Not connected.';
 
 ##
 ## Connection Status -
@@ -28,24 +26,19 @@ my $CLIENT_LOGIN_ERROR = 'Client login error.';
 
 readlogins();
 
-my $q = new CGI;
-my @params = $q -> param;
-
 my $server_addr = $ENV{SERVER_ADDR};
 
-
 #
-# If generating page from the the login screen.
-my @dsnlogin = $q -> param;
-# Parameters for remote host logins.
-my ($username, $password, $host, $dsn);
-# Parameters for remote DBMS logins.
-my ($dsnuser, $dsnpwd);
+# If generating page from the login screen host and dsn at least
+# will be filled in.
+my ($dsnuser, $dsnpwd, $host, $dsn) = 
+	($ENV{'REQUEST_URI'} =~ 
+	 /username=(.*?)&password=(.*?)&host=(.*?)&dsn=(.*?)&/);
+$dsn =~ s/\+/ /g;
 # Temporary strings for URL parameter writing.
 my ($datasource, $dsnparam);
 # Error return value for connect and show tables query
 my $connect_error;
-
 # Array of table names in current DSN
 my @tablenames;
 # Hosts and child nodes are displayed in order of @dsns array.
@@ -53,29 +46,9 @@ my @dsns = ();
 
 my $noconnectstr = 'noconnect';
 
-my $styleheader = <<END_OF_HEADER;
-<!DOCTYPE html
-	PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-	 "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="en-US">
-<head><title>Untitled Document</title>
-<style type="text/css">
-A {color: blue}
-TEXTAREA {background-color: transparent}
-DIV.dsnlist {margin-left: 2}
-DIV.tablelist {margin-left: 4}
-DIV.loginmsg {margin-left: 10}
-</style>
-</head>
-END_OF_HEADER
-
 getdsns();
 
-if ($#dsnlogin != -1) {
-    ($dsnuser, $dsnpwd, $host, $dsn) = 
-	($ENV{'REQUEST_URI'} =~ 
-	 /username=(.*?)&password=(.*?)&host=(.*?)&dsn=(.*?)&/);
-    $dsn =~ s/\+/ /g;
+if ((length($host)) and (length ($dsn))) {
     $connect_error = 
 	gettablenames ($host, $dsn, $dsnuser, $dsnpwd);
     if (! defined $connect_error) {
@@ -93,13 +66,11 @@ if ($#dsnlogin != -1) {
 	$loginmsg = 'Login error on host <i>'. $host . '.</i>: '. 
 	    $connect_error;
     }
-} else {
-    $loginmsg = 'Not logged in.';
 }
 
 sub getdsns {
     foreach my $peeraddr (keys %peers) {
-	my ($peerusername, $peerpassword) = split /::/, $peers{$peeraddr};
+	my ($peerusername, $peerpassword) = split /::/, $peers{$peeraddr}, 2;
 	my $dsnptr = new_dsn_label();
 	my ($c, $loginerror) = peer_client_login ($peeraddr,
 						  $peerusename,
@@ -116,16 +87,37 @@ sub getdsns {
     }
 }
 
-print $q -> header;
-# This gets around the <?xml? DTD header in CGI.pm
-print $styleheader;
-print qq|<body bgcolor="white" text="blue">\n|;
-print qq|<img src="/icons/odbc.gif" hspace="5" height = "32" width="30">\n|;
-print qq|<font size="5">Data Sources</font><p>\n|;
+my $header_style_title = <<END_OF_HEADER;
+Content-Type: text/html
 
-print qq|<div class="loginmsg">|;
-print qq|$loginmsg<p>|;
-print qq|</div>|;
+<!DOCTYPE html
+	PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+	 "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en-US">
+<head><title>Data Sources</title>
+<style type="text/css">
+A {color: blue}
+TEXTAREA {background-color: transparent}
+DIV.dsnlist {margin-left: 2}
+DIV.tablelist {margin-left: 4}
+DIV.loginmsg {margin-left: 10}
+</style>
+</head>
+<body bgcolor="white" text="blue">
+<img src="/icons/odbc.gif" hspace="5" height = "32" width="30">
+<font size="5">Data Sources</font>
+<p>
+<div class="loginmsg">
+$loginmsg<p>
+</div>
+END_OF_HEADER
+
+my $end_html = <<END_HTML;
+</body>
+</html>
+END_HTML
+
+print $header_style_title;
 
 foreach my $d (@dsns) {
     if ($d -> {host} =~ m"$noconnectstr") { # Couldn't create client object
@@ -145,8 +137,7 @@ foreach my $d (@dsns) {
     local $dp = $d -> {host};
     print qq|   <a href="dsns.shtml">\n|;
     print qq|     <img src="/icons/terminal.gif" border="0" |;
-    print qq|     align="middle" hspace="10"><font size="4">$dp</font>\n|;
-    print qq|   </a><br>\n|;
+    print qq|     align="middle" hspace="10"><font size="4">$dp</font></a>\n|;
 
     foreach my $d2 (@{$d -> {dsnarrayref}}) {
 	$dsnparam = $d2;
@@ -156,7 +147,7 @@ foreach my $d (@dsns) {
         print qq|odbclogin.shtml?hostdsn=$dp--$dsnparam" |;
         print qq| target="main">\n|;
         print qq|<img src="/icons/dsn.gif" border="0" |;
-        print qq| align="middle" hspace="10">$d2</a><br>\n|;
+        print qq| align="middle" hspace="10">$d2</a>\n|;
         print qq|</div>\n|;
 	
 	if ( ($#{$d -> {tablearrayref}} != -1 ) &&
@@ -178,7 +169,7 @@ foreach my $d (@dsns) {
 endhtml();
 
 sub endhtml {
-    print $q -> end_html;
+    print $end_html;
 }
 
 sub remotedsn {
