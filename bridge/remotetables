@@ -1,5 +1,5 @@
 #! /usr/local/bin/perl
-#$Id: remotetables,v 1.2 2003/07/14 17:00:47 kiesling Exp $
+#$Id: remotetables,v 1.3 2003/11/28 22:22:36 kiesling Exp $
 
 require 5.004;
 use strict;
@@ -206,9 +206,9 @@ in addition to the table names.
 
 =head1 VERSION INFORMATION AND CREDITS
 
-Revision: $Revision: 1.2 $
+Revision: $Revision: 1.3 $
 
-Written by: Robert Allan Kiesling <rkiesling@earthlink.net>.
+Written by: Robert Allan Kiesling, rkies@cpan.org.
 
 Licensed under the same terms as Perl.  Please refer to the
 file "Artistic" for details.

@@ -1,5 +1,5 @@
 
-# $Id: Makefile.PL,v 1.5 2003/07/14 02:39:13 kiesling Exp $
+# $Id: Makefile.PL,v 1.6 2003/11/28 22:17:23 kiesling Exp $
 
 my $makefile = <<EOMAKEFILE;
 all: install

@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-# $Id: connectinfo,v 1.7 2003/07/31 02:17:22 kiesling Exp $
+# $Id: connectinfo,v 1.8 2003/11/28 22:17:23 kiesling Exp $
 $VERSION=1.0;
 
 use UnixODBC qw(:all);
@@ -298,9 +298,9 @@ Print numeric attributes instead of the ODBC constant labels.
 
 =head1 VERSION INFORMATION AND CREDITS
 
-Revision: $Revision: 1.7 $
+Revision: $Revision: 1.8 $
 
-Written by: Robert Allan Kiesling <rkiesling@earthlink.net>.
+Written by: Robert Allan Kiesling, rkies@cpan.org.
 
 Licensed under the same terms as Perl.  Please refer to the
 file "Artistic" for details.

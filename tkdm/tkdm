@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-#$Id: tkdm,v 1.13 2003/07/22 01:27:49 kiesling Exp $
+#$Id: tkdm,v 1.14 2003/11/28 22:19:07 kiesling Exp $
 
     ###*** 
     # So far: (2003-07-21)
@@ -1943,7 +1943,7 @@ Version 0.13
 
 Tkdm is part of the UnixODBC.pm package.  
 
-Written by: Robert Allan Kiesling <rkiesling@earthlink.net>.
+Written by: Robert Allan Kiesling, rkies@cpan.org.
 
 Licensed under the same terms as Perl.  Please refer to the
 file "Artistic" for details.

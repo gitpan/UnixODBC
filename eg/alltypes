@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# $Id: alltypes,v 1.4 2003/07/13 18:07:28 kiesling Exp $
+# $Id: alltypes,v 1.5 2003/11/28 22:17:23 kiesling Exp $
 $VERSION=1.0;
 
 use UnixODBC qw(:all);
@@ -192,9 +192,9 @@ User's login password on the DBMS server.
 
 =head1 VERSION INFORMATION AND CREDITS
 
-Revision: $Revision: 1.4 $
+Revision: $Revision: 1.5 $
 
-Written by: Robert Allan Kiesling <rkiesling@earthlink.net>.
+Written by: Robert Allan Kiesling, rkies@cpan.org.
 
 Licensed under the same terms as Perl.  Please refer to the
 file "Artistic" for details.

@@ -1,5 +1,5 @@
 #! /usr/local/bin/perl
-# $Id: remotedsn,v 1.4 2003/07/31 23:12:30 kiesling Exp $
+# $Id: remotedsn,v 1.5 2003/11/28 22:22:36 kiesling Exp $
 
 require 5.004;
 use strict;
@@ -126,9 +126,9 @@ sources.
 
 =head1 VERSION INFORMATION AND CREDITS
 
-Revision: $Revision: 1.4 $
+Revision: $Revision: 1.5 $
 
-Written by: Robert Allan Kiesling <rkiesling@earthlink.net>.
+Written by: Robert Allan Kiesling, rkies@cpan.org.
 
 Licensed under the same terms as Perl.  Please refer to the
 file "Artistic" for details.

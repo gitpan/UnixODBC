@@ -1,6 +1,6 @@
 #! /usr/bin/perl -w
 
-# $Id: odbcbridge,v 1.3 2003/07/20 21:24:32 kiesling Exp $
+# $Id: odbcbridge,v 1.4 2003/11/28 22:22:17 kiesling Exp $
 
 use UnixODBC qw(:all);
 use UnixODBC::BridgeServer;
@@ -135,9 +135,9 @@ The odbclogins file that is installed with odbcbridge is shown here.
 
 =head1 VERSION INFORMATION AND CREDITS
 
-Revision: $Revision: 1.3 $
+Revision: $Revision: 1.4 $
 
-Written by: Robert Allan Kiesling <rkiesling@earthlink.net>.
+Written by: Robert Allan Kiesling, rkies@cpan.org.
 
 Licensed under the same terms as Perl.  Please refer to the
 file "Artistic" for details.

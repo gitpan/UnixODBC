@@ -2,11 +2,11 @@
 # For details about the client and server API conventions, refer
 # to the PlRPC POD documentation.
 #
-# $Id: BridgeServer.pm,v 1.18 2003/07/31 23:12:48 kiesling Exp $
+# $Id: BridgeServer.pm,v 1.20 2003/11/28 22:43:31 kiesling Exp $
 
 use lib qw(blib/arch blib/lib);
 
-our $VERSION = '0.23';
+our $VERSION = '0.24';
 
 $| = 1;
 
@@ -1546,7 +1546,7 @@ UnixODBC::BridgeServer.pm is part of the UnixODBC package.
 
 Version: 0.22
 
-Written by: Robert Allan Kiesling <rkiesling@earthlink.net>
+Written by: Robert Allan Kiesling, rkies@cpan.org.
 
 =head1 SEE ALSO
 

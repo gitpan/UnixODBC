@@ -417,11 +417,10 @@ notes.
     
 - Authorship and Copyright
 
-UnixODBC.pm is written by Robert Allan Kiesling
-<rkiesling@earthlink.net>
+UnixODBC.pm is written by Robert Allan Kiesling, rkies@cpan.org.
 
 Copyright 2002-2003 by Robert Allan Kiesling and licensed using
 the same terms as Perl.  Refer to the file "Artistic" for the 
 details.
 
-$Id: README,v 1.7 2003/07/31 16:31:10 kiesling Exp $
+$Id: README,v 1.8 2003/11/28 22:23:12 kiesling Exp $
