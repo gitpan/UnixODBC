@@ -1,4 +1,7 @@
-#!/usr/local/bin/perl 
+#!/usr/bin/perl
+
+# $Id: apifuncs,v 1.3 2003/07/13 18:08:00 kiesling Exp $
+$VERSION = 1.0;
 
 use UnixODBC qw(:all);
 use Getopt::Long;
@@ -11,13 +14,13 @@ my $r;
 ## 
 ## Options from the command line.
 ##
-my $DSN;      # Data source name
-my $UserName; # Login for DBMS  
-my $PassWord; # Password for DBMS
+my $DSN = '';      # Data source name
+my $UserName = ''; # Login for DBMS  
+my $PassWord; = '' # Password for DBMS
 
 
 my $usage=<<EOH;
-Usage: apifuncs [--help] | [--dsn=DSN --user=username --password=password]
+Usage: apifuncs [--help] | [--user=<username>] [--password=<password>] --dsn=<DSN> 
   --help       Print this help and exit.
   --dsn        Data source name.
   --user       DBMS login name.
@@ -31,12 +34,11 @@ GetOptions ('help' => \$help,
 	    'user=s' => \$UserName,
 	    'password=s' => \$PassWord);
 
-if ($help || (not length ($DSN)) || (not length ($UserName)) 
-	      || (not length ($UserName)) || (not length ($PassWord)))
+if ($help || (not length ($DSN)))
      {
 	 print $usage;
 	 exit 0;
-}
+     }
 
 my $ibuf;
 
@@ -172,3 +174,52 @@ sub getdiagrec {
     }
     return $r;
 }
+
+=head1 NAME
+
+apifuncs - Display the ODBC functions supported by a data source.
+
+=head1 SYNOPSIS
+
+apifuncs [--help] | [--user=<username>] [--password=<password>] --dsn=<DSN>
+
+=head1 DESCRIPTION
+
+Apifuncs displays which functions of the ODBC API are supported by a 
+data source.  For each function in the ODBC API, apifuncs prints 
+the API mnemonic, and either "supported" or "not supported."
+
+=head1 OPTIONS
+
+=head2 --help
+
+Print a help message and exit.
+
+=head2 --dsn
+
+The name of the data source.
+
+=head2 --user
+
+User's login name on the DBMS server.
+
+=head2 --password
+
+User's login password on the DBMS server.
+
+=head1 VERSION INFORMATION AND CREDITS
+
+Revision: $Revision: 1.3 $
+
+Written by: Robert Allan Kiesling <rkiesling@earthlink.net>.
+
+Licensed under the same terms as Perl.  Please refer to the
+file "Artistic" for details.
+
+=head1 SEE ALSO
+
+perl(1), UnixODBC(3), UnixODBC::BridgeServer(3).
+
+
+=cut
+

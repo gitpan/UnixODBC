@@ -249,7 +249,7 @@ sub gettablenames {
 				  'sql_alloc_handle (sth)');
     }
 
-    $r = $c -> sql_tables ($sth, '', 0, '', 0, '', 0, '', 0);
+    $r = $c -> sql_tables ($sth, '*', 0, '*', 0, '*', 0, '*', 0);
     if ($r != $SQL_SUCCESS) {
 	return odbc_diag_message ($c, $SQL_HANDLE_STMT, $sth, 
 				  'gettablenames', 'sql_tables');

@@ -1,4 +1,5 @@
 #! /usr/local/bin/perl
+#$Id: remotetables,v 1.2 2003/07/14 17:00:47 kiesling Exp $
 
 require 5.004;
 use strict;
@@ -6,23 +7,50 @@ use strict;
 require RPC::PlClient;
 use UnixODBC qw (:all);
 use UnixODBC::BridgeServer;
+use Getopt::Long;
 
-my $DSN = 'Gutenberg cube1';
-my $UserName = 'postgres';
-my $Password = 'postgres';
+my $Host = '';     # Remote host name or address.
+my $DSN = '';      # DSN on the remote host.
+my $UserName = ''; # Remote host login name.
+my $PassWord = ''; # Remote host login password.
+my $Verbose = '';  # Print the driver names as well as the DSNs.
+my $help;  # Print help and exit.
+
+my $usage=<<EOH;
+Usage: 
+remotetables [--help] | [--verbose] [--user=<username>] [--password=<password>] --dsn=<remotedsn> --host=<remotehost> 
+  --help       Print this help and exit.
+  --host       Remote host name or address.
+  --dsn        Remote DSN.
+  --user       Remote host login name.
+  --password   Remote host login password.
+  --verbose    Print driver names as well as DSNs.
+EOH
+
+GetOptions ('help' => \$help,
+	    'host=s' => \$Host,
+	    'dsn=s' => \$DSN,
+	    'user=s' => \$UserName,
+	    'verbose' => \$Verbose,
+	    'password=s' => \$PassWord);
+
+
+if ($help || (not length ($Host)) || (not length ($DSN)))
+     {
+	 print $usage;
+	 exit 0;
+     }
 
 my $client = 
-    eval { RPC::PlClient->new('peeraddr' => '192.168.0.11',
+    eval { RPC::PlClient->new('peeraddr' => $Host,
 			  'peerport' => 9999,
 			  'application' => 'RPC::PlServer',
 			  'version' => $UnixODBC::VERSION,
 			  'user' => $UserName,
-			  'password' => $Password) }
+			  'password' => $PassWord) }
     or print "Failed to make first connection: $@\n";
 
 my $c = $client -> ClientObject ('BridgeAPI', 'new');
-
-$c -> dm_log_open ('UnixODBC Bridge', '/tmp/bridge.log');
 
 my $evh = 0;
 my $cnh = 0;
@@ -47,7 +75,7 @@ $cnh = $c -> sql_alloc_handle ($SQL_HANDLE_DBC, $evh);
 
 $r = $c -> sql_connect ($cnh, $DSN, length($DSN),
 			$UserName, length($UserName), 
-			$Password, length($Password));
+			$PassWord, length($PassWord));
 if ($r != 0) {
     ($r, $sqlstate, $native, $text, $textlen) = 
         $c -> sql_get_diag_rec ($SQL_HANDLE_DBC, $cnh, 1, 255);
@@ -74,7 +102,8 @@ if ($r != 0) {
         $c -> sql_get_diag_rec ($SQL_HANDLE_STMT, $sth, 1, 255);
     print "\nsql_num_result_columns: $r, $text, $textlen\n";
 }
-print "\n$ncols columns\n";
+
+print "\n$ncols columns\n" if $Verbose;
 
 ($r, $nrows) = $c -> sql_row_count ($sth);
 if ($r != 0) {
@@ -82,21 +111,27 @@ if ($r != 0) {
         $c -> sql_get_diag_rec ($SQL_HANDLE_STMT, $sth, 1, 255);
     print "\nsql_row_count: $r, $text, $textlen\n";
 }
-print "$nrows rows\n";
+
+print "$nrows rows\n" if $Verbose;
 
 while (1) {
     $r = $c -> sql_fetch ($sth);
     last if $r == $SQL_NO_DATA;
+    # Catalog name.
     ($r, $text, $textlen) = $c -> sql_get_data ($sth, 1, $SQL_C_CHAR, 255);
-    print "$text ";
+    print "$text\t" if $Verbose;
+    # Schema name
     ($r, $text, $textlen) = $c -> sql_get_data ($sth, 2, $SQL_C_CHAR, 255);
-    print "$text ";
+    print "$text\t" if $Verbose;
+    # Table name - always print.
     ($r, $text, $textlen) = $c -> sql_get_data ($sth, 3, $SQL_C_CHAR, 255);
-    print "$text ";
+    print "$text\t";
+    # Table type.
     ($r, $text, $textlen) = $c -> sql_get_data ($sth, 4, $SQL_C_CHAR, 255);
-    print "$text ";
+    print "$text\t" if $Verbose;
+    # Remarks
     ($r, $text, $textlen) = $c -> sql_get_data ($sth, 5, $SQL_C_CHAR, 255);
-    print "$text ";
+    print "$text\t" if $Verbose;
     print "\n";
 }
 
@@ -128,4 +163,58 @@ if ($r != 0) {
     print "\nfree_connect: $r, $text, $textlen\n";
 }
 
-dm_log_close;
+=head1 NAME
+
+remotetables - List the tables of a remote data source.
+
+=head1 SYNOPSYS
+
+remotetables [--help] | [--verbose] [--user=<username>] [--password=<password>] --dsn=<remotedsn> --host=<remotehost> 
+
+=head1 DESCRIPTION
+
+Remotetables lists the tables for a remote data source and host given
+as command line arguments, and optionally lists the tables' catalog,
+schema, type, and any remarks provided by the DBMS server.
+
+=head1 OPTIONS
+
+=head2 --help
+
+Print help message and exit.
+
+=head2 --host
+
+Name or network address of remote host.
+
+=head2 --dsn
+
+Name of data source on the remote host.
+
+=head2 --user
+
+User login name on the remote host.
+
+=head2 --password
+
+User login password on theremote host.
+
+=head2 --verbose
+
+List result set size, and tables' catalog, schema, type, and remarks
+in addition to the table names.
+
+=head1 VERSION INFORMATION AND CREDITS
+
+Revision: $Revision: 1.2 $
+
+Written by: Robert Allan Kiesling <rkiesling@earthlink.net>.
+
+Licensed under the same terms as Perl.  Please refer to the
+file "Artistic" for details.
+
+=head1 SEE ALSO
+
+perl(1), UnixODBC(3), UnixODBC::BridgeServer(3), bridgeserver(1).
+
+=cut

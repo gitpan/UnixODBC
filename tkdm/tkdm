@@ -1,17 +1,21 @@
-#!/usr/local/bin/perl -w
+#!/usr/bin/perl
 
-$VERSION=0.12;
+#$Id: tkdm,v 1.12 2003/07/14 17:09:53 kiesling Exp $
+
+$VERSION=0.13;
 @EXPORT_OK=(qw/$VERSION/);
 
 use Tk;
-use Tk::widgets qw(Font Balloon Table);
+use Tk::widgets qw(Canvas Font Balloon Table);
 use Carp;
 use Getopt::Long;
 use UnixODBC qw(:all);
 use UnixODBC::BridgeServer;
 use RPC::PlClient;
+use POSIX;
 
 my $loginsfile = $ENV{HOME}.'/.odbclogins';
+my $serverpidfile = '/usr/local/var/odbcbridge/odbcbridge.pid';
 my %peers;  # Hash of host keys and value of login data from $loginsfile.
 my %hostdsns; # Hash of host keys with list of dsns for value.
 my $peerport = 9999;
@@ -21,6 +25,16 @@ if (! -f $loginsfile) {
     print STDERR "Refer to the man page \"man tkdm\" for information\n";
     exit 255
 }
+
+if (! -f $serverpidfile) {
+    print STDERR "\nThe UnixODBC remote server daemon, odbcbridge, seems not to\n";
+    print STDERR "be running.  Make sure that it is installed correctly,\n";
+    print STDERR "and refer to the odbcbridge man page (\"man odbcbridge\")\n";
+    print STDERR "for information about how to configure and start the \n";
+    print STDERR "bridge server.\n";
+    exit 255;
+}
+    
 
 ##
 ## Connection Status -
@@ -346,7 +360,7 @@ EODSNXPM
 use warnings;
 
 my $mw = new MainWindow (-title => 'Data Manager', -height => $mwheight,
-			 -width => $mwwidth);
+			 -width => $mwwidth, -background => $background);
 my $textbuttonpixmap = $mw -> Pixmap ('textbutton', -data => $textbuttonxpm);
 $textbuttonxpmwidth = $textbuttonpixmap -> width;
 $textbuttonxpmheight = $textbuttonpixmap -> height;
@@ -370,9 +384,14 @@ $selectxpmwidth = $selectpixmap -> width;
 $selectxpmheight = $selectpixmap -> height;
 
 my $dsnpane = $mw -> Scrolled ('Canvas', -background => $background,
-			       -scrollbars => 'se');
+			       -scrollbars => 'se',
+			       -confine => 1);
 $dsnpane -> Subwidget ($_) -> configure (-width => 10) 
     foreach (qw/xscrollbar yscrollbar/);
+# scrollregion is re-configured when info is drawn in drawdsnpane();
+$dsnpane -> configure (-scrollregion =>
+		       [0, 0, $dsnpane -> width, $dsnpane -> height]);
+
 # Direct access to dsn canvas 
 $dsncanvas = $dsnpane -> Subwidget ('canvas');
 
@@ -394,13 +413,39 @@ my $boldfontmetric = $dsnpane -> Font (-family => $family,
 				-underline => 0,
 				-overstrike => 0);
 
+($family, $weight, $slant, $size) = 
+    ($resultsfont =~ /-\*-(\w*?)-(\w*?)-(\w*?)-\*-\*-(\d\d)/);
+my $resultsfontmetric = $dsnpane -> Font (-family => $family,
+				-size => $size,
+				-weight => $weight,
+				-slant => $slant,
+				-underline => 0,
+				-overstrike => 0);
 my $dsnlastselected = undef ; # Item ID of last selected item on DSN pane
-my $tablepane = $mw -> Scrolled ('Canvas', -background => $background,
-				 -scrollbars => 'se');
+
+my $tablepane = $mw -> Scrolled ('Canvas', 
+				 -background => $background,
+				 -scrollbars => 'se',
+				 -confine => 1);
 $tablepane -> Subwidget ($_) -> configure (-width => 10) 
     foreach (qw/xscrollbar yscrollbar/);
+# This is re-configured when pane is filled in.
+$tablepane -> configure (-scrollregion =>
+			 [0, 0, $tablepane -> width, 
+			  $tablepane -> height]);
+$tablepane -> place (-relx => 0.40, -y => 0, -relwidth => 0.6, 
+				 -relheight => 1.0);
 # Direct access to canvas for misc methods not in Canvas class...
-my $tablecanvas = $tablepane -> Subwidget ('canvas');
+$tablecanvas = $tablepane -> Subwidget ('canvas');
+
+#my $tablepane = $mw -> Scrolled ('Canvas', -background => $background,
+#				 -scrollbars => 'se',
+#				 -confine => 1);
+#$tablepane -> Subwidget ($_) -> configure (-width => 10) 
+#    foreach (qw/xscrollbar yscrollbar/);
+# This is re-configured when pane is filled in.
+#$tablepane -> configure (-scrollregion =>
+#		       [0, 0, $tablepane -> width, $tablepane -> height]);
 
 # Create a minimal menu for the canvases.
 my $canvasmenu = $mw -> Menu (-type => 'normal', -tearoff => '',
@@ -411,8 +456,6 @@ $canvasmenu -> add ('command', -label => 'About...',
 $canvasmenu -> add ('command', -label => 'Exit', 
 	-command => sub {$mw -> WmDeleteWindow});
 $dsnpane -> place (-x => 0, -y => 0, -relwidth => 0.4, -relheight => 1.0);
-$tablepane -> place (-relx => 0.40, -y => 0, -relwidth => 0.6, 
-	-relheight => 1.0);
 $mw -> Tk::bind ($dsncanvas, '<3>',
 	[\&postpopupmenu, $canvasmenu, Ev('X'), Ev('Y')]);
 $mw -> Tk::bind ($tablecanvas, '<3>',
@@ -430,6 +473,24 @@ $textmenu -> add ('command', -label => 'About...',
 		    -command => [\&about, $mw]);
 $textmenu -> add ('command', -label => 'Exit', 
 	-command => sub {$mw -> WmDeleteWindow});
+
+#
+# Text widget resizing stuff.
+#
+# Postition within the corner of initial mouse click.
+my ($x_start, $y_start);
+
+# Used for pixel/char conversion when resizing text widgets 
+# in results sets
+my $char0pixelwidth =  $resultsfontmetric -> measure ('0');
+my $fontlineheight = $resultsfontmetric -> metrics (-linespace);
+
+# Initial text widget geometry.
+my $inittextreqwidth = 20;
+my $inittextreqheight = 5;
+
+# Per-cell text sizes. Keys match Cell element in text widget.
+my %textsizes;
 
 sub about {
     my $mw = $_[0];
@@ -492,7 +553,7 @@ sub dsnclick {
 		    $dsnlastselected = $label -> {text_id};
 		    @column_names = describe_table ($label);
 		    $label -> {columns} = \@column_names;
-		    drawtablepaneselectform ($tablecanvas, $label);
+		    drawtablepaneselectform ($label);
 		}
 		last;
 	    }
@@ -771,18 +832,27 @@ sub dsntree {
 
 sub tablepanecontrolbuttons {
     my ($labelptr) = @_;
-    my $frame = $tablecanvas -> Frame (-borderwidth => $borderwidth, 
+    my $buttoncanvas = 
+	$tablepane -> Canvas (-background => $background, 
 			      -relief => $relief,
+			      -height => $textbuttonxpmheight +
+			      $imagepadding,
+			      -width => $textbuttonxpmwidth +
+			      $selectxpmwidth + $enterxpmwidth +
+			      $imagepadding);
+    my $frame = $buttoncanvas -> Frame (-borderwidth => $borderwidth, 
 			      -height => 26,
 			      -background => $background) -> pack;
+    $tablepane -> Advertise ('frame' => $frame);
     my $selectbutton = $frame -> Button (-image => $selectpixmap,
 					 -relief => $relief,
 					 -borderwidth => $borderwidth,
 					 -background => $background,
 		       -command => sub{execute_select_query($labelptr)})
-	-> pack (-side => 'left');
+	-> pack (-side => 'left', -anchor => 'nw');
     my $b1 = $mw -> Balloon (-initwait => $balloonwait);
     $b1 -> attach ($selectbutton, -balloonmsg => 'Execute SELECT query.'); 
+    $tablepane -> Advertise ('selectbutton' => $selectbutton);
 
     my $execbutton = $frame -> Button (-image => $enterpixmap,
 			       -relief => $relief,
@@ -792,25 +862,30 @@ sub tablepanecontrolbuttons {
 	-> pack (-side => 'left');
     my $b2 = $mw -> Balloon (-initwait => $balloonwait);
     $b2 -> attach ($execbutton, -balloonmsg => 'Execute INSERT query.'); 
+    $tablepane -> Advertise ('execbutton' => $execbutton);
     my $textbutton = $frame -> Button (-image => $textbuttonpixmap,
 				       -relief => $relief,
 				       -borderwidth => $borderwidth,
 				       -background => $background,
 		       -command => sub{execute_text_query ($labelptr)})
 	-> pack (-side => 'left');
+    $tablepane -> Advertise ('textbutton' => $textbutton);
     my $b3 = $mw -> Balloon (-initwait => $balloonwait);
     $b3 -> attach ($textbutton, -balloonmsg => 'Enter a SQL text query.'); 
 
-    $tablepane -> Advertise ('controlbuttons' => $frame);
-    return $frame;
+    $tablepane -> Advertise ('controlbuttons' => $buttoncanvas);
+    $frame -> update;
+    $buttoncanvas -> createWindow (0,0, -anchor => 'nw',
+				   -window => $frame);
+    return $buttoncanvas;
 }
 
 sub columnselectframe {
     my (@columns) = @_;
     my ($b, $e, $labelwidth, $maxwidth);
-    my $mframe = $tablepane -> Frame (-borderwidth => $borderwidth,
-			       -relief => $relief,
-			       -background => $background) -> pack;
+    my $selectcanvas = 
+	$tablepane -> Canvas (-background => $background,
+			      -relief => $relief);
     
     # Find the longest column label width.
     $labelwidth = 0;
@@ -820,53 +895,80 @@ sub columnselectframe {
 	$maxwidth = $labelwidth if $labelwidth > $maxwidth;
     }
 
+    my $sc_x_org = 0;
     foreach my $c (@columns) {
-	$sframe = $mframe -> Frame( -borderwidth => 0,
-				   -relief => $relief,
-				   -background => $background)
-	    -> pack (-side => 'left');
-	$b = $sframe -> 
-	    Checkbutton ( -text => $c,
+	$b = $selectcanvas -> 
+	    Checkbutton (-text => $c,
 			 -font => $dsnnormalfont,
 			 -relief => $relief,
 			 -width => $maxwidth,
 			 -borderwidth => 2,
-			 -background => $background) ->
-			 pack (-side => 'top', -padx => 5, -pady => 5);
+			 -background => $background);
+	$selectcanvas -> configure (-width => $sc_x_org + $b -> reqwidth
+				    + $imagepadding);
 	$tablepane -> Advertise ("cb_$c" => $b);
-	$e = $sframe ->
+	$tablepanetags{"cb_$c"} =
+	    $selectcanvas -> createWindow ($sc_x_org, 0,
+					   -anchor => 'nw',
+					   -window => $b);
+	$e = $selectcanvas -> 
 	    Entry (-width => $maxwidth,
-		   -font => $dsnnormalfont,
+		   -font => $resultsfont,
 		   -relief => 'sunken',
-		   -background => $background) 
-		-> pack (-expand => 1, -fill => 'x', 
-			 -padx => 5, -pady => 5);
+		   -background => $background);
 	$tablepane -> Advertise ("en_$c" => $e);
+	$tablepanetags{"en_$c"} = 
+	    $selectcanvas -> createWindow ($sc_x_org,
+					   $b -> reqheight + $imagepadding,
+					   -anchor => 'nw',
+					   -window => $e);
+	$sc_x_org += $b -> reqwidth + $imagepadding;
     }
-    $tablepane -> Advertise ('selectframe' => $mframe);
-    return $mframe;
+    $selectcanvas -> configure (-height => $b -> reqheight + 
+				$imagepadding + 
+				$e -> reqheight +
+				$imagepadding);
+    return $selectcanvas;
 } 
 
+sub refresh_tablepane {
+    $mw -> Busy;
+    foreach my $k (keys %tablepanetags) {
+	$tablepane -> delete ($tablepanetags{$k});
+	print "deleting table canvas element $k\n" if $debug;
+	delete $tablepanetags{$k};
+    }
+    foreach my $s (keys %{$tablepane -> {SubWidget}}) {
+	# Don't delete the scrollbars, etc.
+	next if $s =~ /scrolled|ysbslice|canvas|xscrollbar|yscrollbar|corner/;
+	print "deleting table canvas element $s\n" if $debug;
+	delete $tablepane -> {SubWidget}{$s};
+    }
+    $mw -> Unbusy;
+}
+
 sub drawtablepaneselectform {
-    my $pane = $_[0];
-    my $label = $_[1];
+    my $label = $_[0];
     my ($x_org, $y_org, $buttons, $columns);
     $x_org = 5;
     $y_org = 5;
-    # Delete forms from the previous selection first
-    foreach my $w (qw/controlbuttons selectframe  setsizelabel resultslist/) {
-	$tablepane -> delete ($tablepanetags{$w}) 
-	    if defined $tablepane -> Subwidget ($w);
-    }
+    refresh_tablepane();
     $buttons = tablepanecontrolbuttons ($label);
     $tablepanetags {'controlbuttons'} = 
-	$pane -> createWindow ($x_org, $y_org, -anchor => 'nw',
+	$tablepane -> createWindow ($x_org, $y_org, -anchor => 'nw',
 				   -window => $buttons);
+    $tablepane -> Advertise ('controlbuttons' => $buttons);
     $columns = columnselectframe(@{$label -> {columns}});
     $y_org += ($buttons -> cget(-height)) + ($imagepadding * 3);
     $tablepanetags{'selectframe'} = 
-	$pane -> createWindow ($x_org, $y_org, -anchor => 'nw',
+	$tablepane -> createWindow ($x_org, $y_org, -anchor => 'nw',
 			       -window => $columns);
+    $tablepane -> Advertise ('selectframe' => $columns);
+    $tablepane -> update;
+    $tablepane -> configure (-scrollregion =>
+			     [0,0, 
+			      $columns -> width,
+			      $y_org + $buttons -> height]);
 }
 
 sub drawdsnpane {
@@ -874,6 +976,7 @@ sub drawdsnpane {
 
     my $insert_y_org = 5;
     my $label_length;
+    my $x_width = 0;
 
     # First erase the canvas
     foreach my $h (@hostlabels) {
@@ -901,6 +1004,7 @@ sub drawdsnpane {
 					   $tablexpmwidth +
 					   $imagepadding;
 						       
+	    $x_width = $label_length if $label_length > $x_width;
 	    $label -> {x_org} = $table_indent;
 	    $label -> {y_org} = $insert_y_org;
 	    $label -> {x_bound} = $table_indent + $label_length;
@@ -925,6 +1029,7 @@ sub drawdsnpane {
 					   $dsnxpmwidth +
 					   $imagepadding;
 						       
+	    $x_width = $label_length if $label_length > $x_width;
 	    $label -> {x_org} = $dsn_indent;
 	    $label -> {y_org} = $insert_y_org;
 	    $label -> {x_bound} = $dsn_indent + $label_length;
@@ -953,6 +1058,7 @@ sub drawdsnpane {
 					   $termxpmwidth +
 					   $imagepadding;
 						       
+	    $x_width = $label_length if $label_length > $x_width;
 	    $label -> {x_org} = $host_indent;
 	    $label -> {y_org} = $insert_y_org;
 	    $label -> {x_bound} = $host_indent + $label_length;
@@ -960,6 +1066,8 @@ sub drawdsnpane {
 	    $insert_y_org += $imagepadding + $termxpmheight;
 	}
     } # foreach my $label (@hostlabels)
+    $dsnpane -> configure (-scrollregion =>
+			   [0,0, $x_width, $insert_y_org]);
 }
 
 sub execute_text_query {
@@ -995,11 +1103,18 @@ sub execute_text_query {
 sub sql_query {
     my ($w, $labelptr) = @_;
     $mw -> Busy;
+    my @col_selectors;
     $userquerytext = 
 	$labelptr -> {query} = 
 	$w -> Subwidget ('qtextbox') -> get ('0.0', 'end');
     $labelptr -> {query} =~ s/\n/ /gsm;
     print 'sql_query: ' . $labelptr -> {query} . "\n" if $debug;
+    for my $k (keys %{$tablepane -> {SubWidget}}) {
+	if ($k =~ /cb_/) {
+	    push @col_selectors, ($tablepane -> Subwidget ($k));
+	}
+    }
+    push @{$labelptr -> {columns}}, @col_selectors;
     my $resultarrayref = query_db ($labelptr);
     display_result_set ($labelptr, $resultarrayref);
     $w -> WmDeleteWindow;
@@ -1012,6 +1127,9 @@ sub execute_select_query {
     my (@col_selectors, @predicates); # Refs of the check button and
                                       # entry widgets at the top of
                                       # the frame.
+    # (Re-)initialize some data.
+    $#col_selectors = -1;
+    $#predicates = -1;
     my ($query, $tmplabel, $resultarrayref);
     for my $k (keys %{$tablepane -> {SubWidget}}) {
 	if ($k =~ /cb_/) {
@@ -1053,26 +1171,24 @@ sub display_result_set {
     my $resultarrayref = $_[1];
     my ($rref, $ridx, $cidx);
     my ($textwidget, $textheight);
-    my ($resultslist, @selectedcolumns, $selectortext);
+    my $resultslist;
     my $y_org = ($tablepane -> Subwidget ('controlbuttons') -> height) +
 	($tablepane -> Subwidget ('selectframe') -> height) + 
 	($imagepadding * 3);
-     my @textoptions = (-background, $background,
-			-wrap, 'none',
-			-relief, $relief);
+    my @textoptions = (-background, $background,
+		       -wrap, 'none',
+		       -relief, $relief,
+		       -font, $resultsfont);
 
     # Erase the previous results if any
     foreach my $w (qw/setsizelabel resultslist/) {
 	$tablepane -> delete ($tablepanetags{$w})
 	    if defined $tablepane -> Subwidget ($w);
+	delete $tablepanetags{$w};
     }
 
-    my $nrows = $#{$resultarrayref}; 
-    my $ncols = $#{${$resultarrayref}[0]};
-    $nrows = 0 if $nrows == -1;
-    $ncols = 0 if $ncols == -1;
-    my $setsizetext = $nrows  . ' rows, ' . ($ncols + 1) . 
-       ' columns in result set.';
+    my $setsizetext = $labelptr -> {result_rows}  . ' rows, ' . 
+	$labelptr -> {result_cols} . ' columns in result set.';
 
     my $setsizelabel = $tablecanvas -> Label (-text => $setsizetext,
 					      -font => $dsnnormalfont,
@@ -1085,48 +1201,59 @@ sub display_result_set {
     print 'display_result_set: query '. $labelptr -> {query} . "\n"
       if $debug;
 
-    return if ! $nrows;
+    return if ! $labelptr -> {result_rows} || ! $labelptr -> {result_cols};
 
-    if ($labelptr -> {query} =~ /select +\*/) {
-	push @selectedcolumns, @{$labelptr -> {columns}};
-    } else { # extract the column selectors from the query text.
-	($selectortext) = ($labelptr -> {query} =~ /select (.*) from/);
-	@selectedcolumns = split /\, *?/, $selectortext;
-    }
-
-    $resultslist = $tablecanvas -> Table ( -rows => $nrows + 1,
-                                           -columns => $#selectedcolumns + 1,
-                                           -scrollbars => 'osoe',
-                                           -background => $background,
-                                           -fixedrows => 1);
+    $resultslist = $tablecanvas -> Table ( 
+	   -rows => $labelptr -> {result_rows} + 1,
+           -columns => $labelptr -> {result_cols} + 1,
+           -scrollbars => 'osoe',
+           -background => $background,
+           -fixedrows => 1);
 
      $cidx = 0; 
-     $resultslist -> put (1, $cidx++, $_) foreach (@selectedcolumns);
+     $resultslist -> put (1, $cidx++, $_) 
+	 foreach (@{$labelptr -> {result_column_heads}});
+
 
      $ridx = 2;
      foreach $rref (@{$resultarrayref}) {
           for ($cidx = 0; $cidx <= $#{$rref}; $cidx++) {
-               if (${$rref}[$cidx] =~ /\n.*\n/) {
-                    $textheight = 5;
-                    $textwidget = $resultslist -> 
-                         Scrolled ('Text', -height => $textheight,
-			           -width => 20,
-			           -scrollbars => 'osoe',
-			           @textoptions);
-                    $textwidget -> Subwidget ($_) -> configure (-width => 10) 
-                        foreach (qw/xscrollbar yscrollbar/);
-               } else {
-                   $textheight = 1;
-                   $textwidget = $resultslist -> Text (-height => $textheight,
-		                                 -width => 20,
-					         @textoptions);
-               }
-               $mw -> Tk::bind ('Tk::Text', '<3>', '');
-               $mw -> Tk::bind ($textwidget, '<3>',
-				[\&postpopupmenu, 
-				 $textmenu, Ev('X'), Ev('Y')]);
-               $textwidget -> insert ('end', ${$rref}[$cidx]);
-               $resultslist -> put ($ridx, $cidx, $textwidget);
+	      if (${$rref}[$cidx] =~ /\n.*\n/) {
+
+	      if (not $textsizes{"$rref.$cidx"}) {
+		  $textsizes{"$rref.$cidx"} = 
+		      $inittextreqwidth.'x'.$inittextreqheight;
+	      } 
+	      my ($tw, $th) = ($textsizes{"$rref.$cidx"} =~ /(.*)x(.*)/);
+
+	      $textwidget = $resultslist -> 
+		  Scrolled ('Text', 
+			    -height => $th,
+			    -width => $tw,
+			    -scrollbars => 'se',
+			    @textoptions);
+	      $textwidget -> Subwidget ($_) -> configure (-width => 10) 
+		  foreach (qw/xscrollbar yscrollbar/);
+	      $textwidget -> {Cell} = $rref.'.'.$cidx;
+	      $textwidget -> {SubWidget} -> {corner} -> 
+		  bind ('<ButtonPress-1>', [\&cornerdown, Ev ('x'), Ev('y')]);
+	      $textwidget -> {SubWidget} -> {corner} -> 
+		  bind ('<ButtonRelease-1>', [\&cornerup, 
+					      $labelptr, 
+					      $resultarrayref,
+					      Ev ('x'), Ev('y')]);
+	  } else {
+	      $textheight = 1;
+	      $textwidget = $resultslist -> Text (-height => $textheight,
+						  -width => 20,
+						  @textoptions);
+	  }
+	  $mw -> Tk::bind ('Tk::Text', '<3>', '');
+	  $mw -> Tk::bind ($textwidget, '<3>',
+			   [\&postpopupmenu, 
+			    $textmenu, Ev('X'), Ev('Y')]);
+	  $textwidget -> insert ('end', ${$rref}[$cidx]);
+          $resultslist -> put ($ridx, $cidx, $textwidget);
          }
          $ridx++;
     }
@@ -1136,10 +1263,62 @@ sub display_result_set {
     $tablepanetags{'resultslist'} = 
       $tablepane -> createWindow ( 10, $y_org, -window => $resultslist,
 				 -anchor => 'nw');
+
+     $tablepane -> update;
+     my $width = $tablepane -> Subwidget ('controlbuttons') -> width;
+     $width = $tablepane -> Subwidget ('selectframe') -> width 
+     if $tablepane -> Subwidget ('selectframe') -> width > $width;
+     $width = $resultslist -> width if $resultslist -> width > $width;
+     $tablepane -> configure (-scrollregion =>
+               [0,0, 
+               $width + 20, # Left and right padding
+		$resultslist -> height + $y_org + 10]);
+}
+
+sub cornerdown {
+    my $r = shift;
+    $x_start = $_[0];
+    $y_start = $_[1];
+}
+
+sub cornerup {
+    my $r = shift;
+    my $dsnlabelptr = $_[0];
+    my $results = $_[1];
+    my $x = $_[2];
+    my $y = $_[3];
+
+    my $tablecell = $r -> parent -> parent -> {Cell};
+    my ($v_width, $v_height, $v_x_org, $v_y_org) = 
+	($r -> parent -> parent -> geometry =~ 
+	 /^(.*?)x(.*?)\+(.*?)\+(.*?)$/);
+    my ($r_width, $r_height, $r_x_org, $r_y_org) = 
+	($r -> geometry =~ /^(.*?)x(.*?)\+(.*?)\+(.*?)$/);
+    $v_width = ($v_width + $x) - ($r_width + $x_start);
+    $v_height = ($v_height + $y) - ($r_height + $y_start);
+    my $tw = round ($v_width / $char0pixelwidth);
+    my $th = round ($v_height / $fontlineheight);
+    $textsizes{$tablecell} = $tw . 'x'. $th;
+    foreach my $w (qw/setsizelabel resultslist/) {
+	$tablepane -> delete ($tablepanetags{$w})
+	    if defined $tablepane -> Subwidget ($w);
+    }
+    display_result_set($dsnlabelptr, $results);
+}
+
+sub round {
+    my $i = $_[0];
+    if ($i == int $i) {
+	return $i;
+    }
+    if (($i - int $i) > ($i - ceil ($i))) {
+	return ceil ($i);
+    }
+    return int $i;
 }
 
 sub trimstr { 
-    my ($s) = $_[0];
+    my $s = $_[0];
     $s =~ s/ *$//;
     return $s;
 }
@@ -1148,7 +1327,10 @@ sub build_select_query {
     my ($labelptr, $col_selectors, $predicates) = @_;
     my ($querystring, @selectedfields, %qpreds);
     my ($npreds, $predtext, $predlabel);
+    # Re-initialize some data.
     $npreds = 0;
+    $querystring = '';
+    delete $qpreds{$_} foreach (keys %qpreds);
     # Go through all the headings so that the selectors get listed in
     # the right order....
     foreach my $heading (@{$labelptr -> {columns}}) {
@@ -1220,8 +1402,8 @@ sub build_insert_query {
 sub query_db {
     my $labelptr = $_[0];
     my ($r, $evh, $cnh, $sth);
-    my ($nrows, $ncols, @rowarray, $colarrayref);
-    my ($result_text, $length_result);
+    my ($nrows, $ncols, @rowarray, $colarrayref, $colheadingsref);
+    my ($result_text, $length_result, $result_num);
     my ($peerusername, $peerpassword) = split /::/, 
         $peers{$labelptr -> {host}};
     my $c = peer_client_login ($labelptr -> {host},
@@ -1268,26 +1450,36 @@ sub query_db {
 	return 1;
     }
     
-    $r = $c -> sql_exec_direct ($sth, 
-				$labelptr -> {query}, 
-				length ($labelptr -> {query}) );
+    $r = $c -> sql_prepare ($sth, $labelptr -> {query}, 
+			    length ($labelptr -> {query}));
     if ($r != 0) {
 	odbc_diag_message ($c, $SQL_HANDLE_STMT, $sth, 
-			   'query_db', 'sql_exec_direct');
+			   'query_db', 'sql_prepare');
+    }
+
+    $r = $c -> sql_execute ($sth);
+    if ($r != 0) {
+	odbc_diag_message ($c, $SQL_HANDLE_STMT, $sth, 
+			   'query_db', 'sql_execute');
     } else {
 	($r, $nrows) = $c -> sql_row_count ($sth);
+	$labelptr -> {result_rows} = $nrows;
 	if ($r != 0) {
 	    odbc_diag_message ($c, $SQL_HANDLE_STMT, $sth,
 			       'query_db', 'sql_row_count');
 	}
 	($r, $ncols) = $c -> sql_num_result_columns ($sth);
+	$labelptr -> {result_cols} = $ncols;
 	if ($r != 0) {
 	    odbc_diag_message ($c, $SQL_HANDLE_STMT, $sth,
 			       'query_db', 'sql_num_result_columns');
 	}
+
 	print "query_db result: rows $nrows, cols $ncols\n" if $debug;
-	my $rfetch = $SQL_SUCCESS;
-	while ($rfetch == $SQL_SUCCESS) {
+
+	if ($labelptr -> {result_rows}) {
+	    my $rfetch = $SQL_SUCCESS;
+	    while ($rfetch == $SQL_SUCCESS) {
 		$rfetch = $c -> sql_fetch ($sth);
 		$colarrayref = new_array_ref();
 		for ( my $col = 1; $col <= $ncols; $col++) {
@@ -1301,8 +1493,23 @@ sub query_db {
 		    $$colarrayref[$col - 1] = $result_text;
 		} # for 
 		push @rowarray, ($colarrayref);
-	} # while
-    } # sql_exec_direct
+	    } # while
+
+	    # Get the column headings 
+	    foreach my $colno (1..$labelptr -> {result_cols}) {
+		($r, $result_text, $length_result, $result_num) = 
+		    $c -> sql_col_attribute ($sth, $colno, 
+					     $SQL_COLUMN_NAME, 255);
+		if ($r == $SQL_ERROR) {
+		    odbc_diag_message ($c, $SQL_HANDLE_STMT, $sth,
+				       'query_db', 'sql_col_attribute (NAME)');
+		    return;
+		}
+		push @{$colheadingsref}, ($result_text);
+	    } # foreach
+	    $labelptr -> {result_column_heads} = $colheadingsref;
+	} # if ($labelptr -> {result_rows}) 
+    } # sql_execute
 
     $r = $c -> sql_free_handle ($SQL_HANDLE_STMT, $sth);
     if ($r != $SQL_SUCCESS) {
@@ -1362,7 +1569,11 @@ sub new_dsnlabel {
 	# Array ref of column names in table elements
 	columns => undef,
         # Most recent SQL query.
-        query => undef
+        query => undef,
+	# Rows, columns, and column headings in result set.
+	result_rows => 0,
+	result_cols => 0,
+	result_column_heads => undef
 	};
     return $dsnlabel;
 }
@@ -1653,6 +1864,11 @@ Once the query is submitted, tkdm will display the number of rows and
 columns in the result set, and, if the query returns data in the 
 result set, tkdm will display the data in tabular form in the window.  
 
+Data that consists of more than one line of text is displayed in a
+scrollable window.  You can resize the text box by dragging the corner
+widget at the lower right of the window.  You can cut and paste
+highlighted text into other applications using the X Window clipboard.
+
 =head1 CONFIGURATION
 
 The file $HOME/.odbclogins contains the information for logging into
@@ -1687,7 +1903,7 @@ group and other read permissions for the file, by using the command:
 
 =head1 VERSION INFORMATION AND CREDITS
 
-Version 0.12
+Version 0.13
 
 Tkdm is part of the UnixODBC.pm package.  
 

@@ -456,7 +456,7 @@ our @EXPORT_OK = qw($SQL_NULL_DATA $SQL_DATA_AT_EXEC $SQL_HANDLE_ENV
  &SQLGetDiagField &SQLColumnPrivileges &SQLColumns &SQLCloseCursor
  &SQLForeignKeys &SQLPrimaryKeys &SQLProcedureColumns &SQLProcedures
  &SQLSpecialColumns &SQLStatistics &SQLTables &SQLTablePrivileges
- &SQLSetStmtOption
+ &SQLSetStmtOption &SQLError
  &dm_log_open &dm_log_close
 );
 
@@ -464,7 +464,7 @@ our @EXPORT_OK = qw($SQL_NULL_DATA $SQL_DATA_AT_EXEC $SQL_HANDLE_ENV
 our %EXPORT_TAGS = ( 'all' => [@EXPORT_OK] );
 
 our @EXPORT = qw();
-our $VERSION = '0.20';
+our $VERSION = '0.21';
 
 sub AUTOLOAD {
     # This AUTOLOAD is used to 'autoload' constants from the constant()
@@ -2170,7 +2170,7 @@ our $SQL_UB_VARIABLE = 2;
 our $SQL_COL_PRED_CHAR = $SQL_LIKE_ONLY;
 our $SQL_COL_PRED_BASIC = $SQL_ALL_EXCEPT_LIKE;
 
-#  SQLSetPos
+
 our $SQL_ENTIRE_ROWSET = 0;
 
 #  SQLSetPos 
@@ -2220,7 +2220,7 @@ our $SQL_SCROLL_KEYSET_DRIVEN = -1;
 our $SQL_SCROLL_DYNAMIC	= -2;
 our $SQL_SCROLL_STATIC = -3;
 
-#  SQLExtendedFetch rgfRowStatus
+#  SQLExtendedFetch RowStatus
 our $SQL_ROW_SUCCESS = 0;
 our $SQL_ROW_DELETED = 1;
 our $SQL_ROW_UPDATED = 2;
@@ -2324,45 +2324,6 @@ our @SQL_ODBC_KEYWORDS = qw(ABSOLUTE ACTION ADA ADD ALL ALLOCATE ALTER AND
   VARYING VIEW WHEN WHENEVER WHERE WITH WORK WRITE YEAR ZONE);
 
 
-## 
-## /* sqlext.h */
-## 
-## /*
-##  *  SQLSetPos macros
-##  */
-# our $SQL_POSITION_TO(hstmt,irow) 	\
-##     SQLSetPos(hstmt,irow,SQL_POSITION,SQL_LOCK_NO_CHANGE)
-# our $SQL_LOCK_RECORD(hstmt,irow,fLock) \
-##     SQLSetPos(hstmt,irow,SQL_POSITION,fLock)
-# our $SQL_REFRESH_RECORD(hstmt,irow,fLock) \
-##     SQLSetPos(hstmt,irow,SQL_REFRESH,fLock)
-# our $SQL_UPDATE_RECORD(hstmt,irow) \
-##     SQLSetPos(hstmt,irow,SQL_UPDATE,SQL_LOCK_NO_CHANGE)
-# our $SQL_DELETE_RECORD(hstmt,irow) \
-##     SQLSetPos(hstmt,irow,SQL_DELETE,SQL_LOCK_NO_CHANGE)
-# our $SQL_ADD_RECORD(hstmt,irow) \
-##     SQLSetPos(hstmt,irow,SQL_ADD,SQL_LOCK_NO_CHANGE)
-## 
-## 
-## 
-## /*
-##  *  SQLAllocHandleStd - make SQLAllocHandle compatible with X/Open standard
-##  *
-##  *  NOTE: An application should not call SQLAllocHandleStd directly
-##  */
-## #ifdef ODBC_STD
-# our $SQLAllocHandle			SQLAllocHandleStd
-# our $SQLAllocEnv(phenv) \
-##     SQLAllocHandleStd(SQL_HANDLE_ENV, SQL_NULL_HANDLE, phenv)
-## 
-## #if (ODBCVER >= 0x0300)
-## SQLRETURN SQL_API SQLAllocHandleStd (
-##     SQLSMALLINT fHandleType,
-##     SQLHANDLE hInput,
-##     SQLHANDLE * phOutput);
-## #endif
-
-
 bootstrap UnixODBC $VERSION;
 
 # Preloaded methods go here.
@@ -2374,175 +2335,1563 @@ __END__
 
 =head1 NAME
 
-UnixODBC - Perl extension for unixODBC 2.2.0.
+UnixODBC - Perl extension for unixODBC. 
 
 =head1 SYNOPSIS
 
   use UnixODBC ':all';
 
+=head1 DESCRIPTION
+
+Perl extension for unixODBC library API.
+
+=head2 ODBC Overview
+
+The Open Database Connectivity standard provides a DBMS
+server-independent application programming interface for client
+programs.  An application that is written using ODBC functions should,
+in theory, work equally well with any DBMS server that provides an
+ODBC API interface.
+
+ODBC provides functions that connect to a DBMS server; set and get
+server and connection parameters; query the DBMS server for database
+information like data types, and table and column information; and
+prepare SQL queries, transactions, and retrieve results sets.
+
+ODBC uses one or more Data Source Names, or DSNs, to connect to
+databases.  DSNs contain information about the DBMS server-specific
+driver libraries, the hostname, authentication information, and 
+DBMS-specific parameters.  The unixODBC libraries provide the GUI
+utility B<ODBCConfig> and the text-mode B<odbcinst> utility to
+maintain driver and DSN definitions.  You can determine, for example, 
+which DBMS drivers are installed on the system with the Unix command:
+
+  shell> odbcinst -q -d
+
+You can get the names of the DSNs on the system with the Unix command: 
+
+  shell> odbcinst -q -s
+
+Refer to the section L<"Drivers and DSNs"> to find out how to
+configure ODBC DBMS drivers and DSNs.
+
+=head2 ODBC Data Access Clients
+
+ODBC client programs use data "handles" to maintain information about
+the system's ODBC environment, the connection to the DSN, and the
+query statement being performed.  ODBC calls these handles:
+
+  - Environment Handles
+  - Connection Handles
+  - Statement Handles
+
+All operations between the client program and the DBMS server are
+performed using these handles and ODBC functions.  Client programs
+generally have the structure:
+
+  - Allocate an environment handle.
+  - Perform configuration based on the ODBC environment.
+  - Allocate a connection handle.
+  - Connect to the DSN.
+  - Allocate a statement handle.
+  - Prepare and execute a query statement.
+  - Retrieve the results.
+  - De-allocate the statement, connection, and environment handles.
+
+The following ODBC client program connects to a DSN named "Catalog,"
+sends the SQL query "select * from titles" to the DBMS server, and
+retrieves and prints the results.  After nearly every ODBC function
+call, it checks that the function executed successfully, and if not,
+prints the diagnostic record and exits.
+
+  use UnixODBC ':all';
+
+  # ODBC Handles 
+
   my $evh;    # Environment handle
   my $cnh;    # Connection handle
   my $sth;    # Statement handle
-  my $r;      # result
-  my $buf;    # Buffer for results
-  my $buflen; # Size of buffer.
-  my $rlen;   # Length of result.
 
-  my $query = 'select * from customers;';
+  # Return Value of Function Calls
+
+  my $r;      # result
+
+  # Common Data Buffers and Data Lengths
+
+  my $buf;          # Buffer for results
+  my $buflen = 255; # Maximum Size of buffer.
+  my $rlen;         # Length of Returned Value.
+
+  # Variables for Diagnostic Messages
+
+  my $diagrecno = 1;
+  my $sqlstate;
+
+  # DSN Name and Login Information.  Edit the DSN, login,
+  # and password when using this script on another system.
+
+  my $DSN = 'Catalog';
+  my $UserName = 'user';
+  my $PassWord = 'password';
+
+  # SQL Query.  In this example, the table is named "titles" 
+  # and contains 5 data columns.
+
+  my $query = 'select * from titles;';
+
+  # Allocate the environment handle.  If the function resulted in 
+  # an error, print the Diagnostic information and exit the 
+  # program.
+
+  $r = SQLAllocHandle ($SQL_HANDLE_ENV, $SQL_NULL_HANDLE, $evh);
+
+  # After function calls, retrieve the diagnostic record, print 
+  # the diagnostic message, and exit if the function was 
+  # unsuccessful.
+
+  if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+      SQLGetDiagRec ($SQL_HANDLE_ENV, $evh, $diagrecno, $sqlstate, 
+	  	   $native, $buf, $buflen, $rlen);
+      print "$buf\n";
+      exit 1
+  }
+
+  # Specify ODBC Version 2
+
+  $r = SQLSetEnvAttr($evh, $SQL_ATTR_ODBC_VERSION, $SQL_OV_ODBC2, 0);
+
+  if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+      SQLGetDiagRec ($SQL_HANDLE_ENV, $evh, $diagrecno, $sqlstate, 
+	  	   $native, $buf, $buflen, $rlen);
+      print "$buf\n";
+      exit 1;
+  }
+
+  # Allocate the connection handle.
+
+  $r = SQLAllocHandle ($SQL_HANDLE_DBC, $evh, $cnh);
+
+  if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+      SQLGetDiagRec ($SQL_HANDLE_ENV, $evh, $diagrecno, $sqlstate, 
+		   $native, $buf, $buflen, $rlen);
+      print "$buf\n";
+      exit 1;
+  }
+
+  # Connect to the data source.  $SQL_NTS in place of the length of the 
+  # preceding parameter indicates a null-terminated string.  
+
+  $r = SQLConnect ($cnh, $DSN, $SQL_NTS,
+		   $UserName, $SQL_NTS,
+		   $PassWord, $SQL_NTS);
+
+  if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+      SQLGetDiagRec ($SQL_HANDLE_DBC, $cnh, $diagrecno, $sqlstate, 
+		     $native, $buf, $buflen, $rlen);
+      print "$buf\n";
+      exit 1;
+  }
+
+  # Allocate a statement handle.
+
+  $r = SQLAllocHandle ($SQL_HANDLE_STMT, $cnh, $sth);
+
+  if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+      SQLGetDiagRec ($SQL_HANDLE_STMT, $sth, $diagrecno, $sqlstate, 
+		     $native, $buf, $buflen, $rlen);
+      print "$buf\n";
+      exit 1;
+  }
+
+  # Prepare the SQL query.
 
   $r = SQLPrepare ($sth, $query, length ($query));
 
-=head1 DESCRIPTION
+  if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+      SQLGetDiagRec ($SQL_HANDLE_STMT, $sth, $diagrecno, $sqlstate, 
+		   $native, $buf, $buflen, $rlen);
+      print "$buf\n";
+      exit 1;
+  }
 
-Perl library for unixODBC 2.2.1 API.
+  # Execute the SQL query.  
 
-=head1 API
+  $r = SQLExecute ($sth);
 
-=head2 SQLAllocHandle ($handle_type, $parent_handle, $new_handle)
+  if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+      SQLGetDiagRec ($SQL_HANDLE_STMT, $sth, $diagrecno, $sqlstate, 
+		     $native, $buf, $buflen, $rlen);
+      print "$buf\n";
+      exit 1;
+  }
 
-  # Allocate environment handle
+  # Loop to retrieve data rows.
+  # Keep looping and then exit when there is no more data. More 
+  # complex programs may need to check for the number of rows and 
+  # columns in the result set before retrieving the data.
 
-  $r = &UnixODBC::SQLAllocHandle ($SQL_HANDLE_ENV, $SQL_NULL_HANDLE, 
-				  $evh);
+  while (1) {   
+      # Fetch the next row of data in the result set.
+      $r = SQLFetch ($sth);
 
-  # Allocate connection handle
+      # Exit the loop if there is no more data.
+      last if $r == $SQL_NO_DATA;
 
-  $r = &UnixODBC::SQLAllocHandle ($SQL_HANDLE_DBC, $evh, $cnh);
+      # Loop to retrieve the data for columns 1..5.  
 
-  # Allocate statement handle
+      foreach my $column (1..5) {
+	  $r = SQLGetData ($sth, $column, $SQL_C_CHAR, $buf, $buflen, $rlen);
 
-  $r = &UnixODBC::SQLAllocHandle ($SQL_HANDLE_STMT, $cnh, $sth);
+	  # Print results with fields delimited by tabs.
+	  print "$buf\t";
+      }
 
-=head2 SQLAllocEnv ($evh)
+      # Delimit rows in the output with newlines.
+      print "\n";
+  }
+
+  # Clean up.  De-allocate the statement handle
+
+  $r = SQLFreeHandle ($SQL_HANDLE_STMT, $sth);
+
+  if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+      SQLGetDiagRec ($SQL_HANDLE_STMT, $sth, $diagrecno, $sqlstate, 
+		     $native, $buf, $buflen, $rlen);
+      print "$buf\n";
+      exit 1;
+  }
+
+  # Disconnect from the DSN.
+
+  $r = SQLDisconnect ($cnh);
+
+  if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+      SQLGetDiagRec ($SQL_HANDLE_DBC, $cnh, $diagrecno, $sqlstate, 
+		     $native, $buf, $buflen, $rlen);
+      print "$buf\n";
+      exit 1;
+  }
+
+  # De-allocate the connection handle.
+
+  $r = SQLFreeConnect ($cnh);
+
+  if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+      SQLGetDiagRec ($SQL_HANDLE_DBC, $cnh, $diagrecno, $sqlstate, 
+		     $native, $buf, $buflen, $rlen);
+      print "$buf\n";
+      exit 1;
+  }
+
+  # De-allocate the environment handle.
+
+  $r = SQLFreeHandle ($SQL_HANDLE_ENV, $evh);
+
+  if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+      SQLGetDiagRec ($SQL_HANDLE_ENV, $evh, $diagrecno, $sqlstate, 
+		     $native, $buf, $buflen, $rlen);
+      print "$buf\n";
+      exit 1;
+  }
+
+  exit 0;
+
+
+=head2 Basic Drivers and DSNs
+
+On each host system, each ODBC-accessible DBMS servers has an ODBC
+Driver defined for it.  Driver definitions are contained in a file
+named odbcinst.ini.  They are accessible using the utility programs
+ODBCConfig or odbcinst, as described above.
+
+If neither utility is present on the system, consult the person who
+provided the ODBC libraries, or compile and install the unixODBC
+source code distribution from the Internet sites listed below.
+
+Each ODBC accessible database must have a DSN defined for it.  DSN
+definitions are contained in a file named odbc.ini.  Each DSN must
+specify a DBMS Driver, a database name, and the host name, which is
+normally the local system, unless the data source is an ODBC bridge.
+ODBC can also use network proxies, like DBI::proxy or
+UnixODBC::BridgeServer, but these APIs are not part of the ODBC
+standard, and so are not defined as DSNs.
+
+If you need to connect to data sources on remote systems, refer to
+the UnixODBC::BridgeServer manual page and the API defined there.
+
+If necessary, you can edit odbcinst.ini or odbc.ini yourself, or
+create templates for Drivers and DSNs.  Often the files are located in
+/usr/local/etc, but they may also be in /etc, or some other location.
+Check the unixODBC distribution for the specific directory layout.
+You will need to know the configuration of the DBMS server and the
+ODBC library modules for the Driver definition, and the name of the
+database and login data at least for the DSN definition.
+
+Here is an odbcinst.ini entry for a MySQL-MyODBC Driver:
+
+  [MySQL 3.23.49]
+  Description	= MySQL-MyODBC Sample - Edit for your system.
+  Driver	= /usr/local/lib/libmyodbc3-3.51.02.so
+  Setup		= /usr/local/lib/libodbcmyS.so.1.0.0
+  FileUsage	= 1
+  CPTimeout	= 
+  CPReuse	= 
+
+Here is the odbc.ini entry for a DSN named "Contacts," which uses the
+MySQL driver.
+
+  [Contacts]
+  Description	= Names and Addresses Sample - Edit for your system.
+  Driver	= MySQL 3.23.49
+  Server	= localhost
+  Port		= 3396
+  Socket	= /tmp/mysql.sock
+  Database	= Contacts
+
+Here is another odbcinst.ini Driver definition, for PostgreSQL:
+
+  [PostgreSQL 7.x]
+  Description	= Postgresql 7.x Sample - Edit for your system
+  Driver	= /usr/local/lib/libodbcpsql.so.2.0.0
+  Setup		= /usr/local/lib/libodbcpsqlS.so.1.0.0
+  FileUsage	= 1
+  CPTimeout	= 
+  CPReuse	= 
+
+And here is the odbc.ini entry for a DSN that uses the PostgreSQL
+Driver:
+
+  [Postgresql]
+  Description	        = Sample DSN - Edit for your system.
+  Driver	        = PostgreSQL 7.x
+  Trace		        = No
+  TraceFile		= 
+  Database		= gutenberg
+  Servername		= localhost
+  Username		= postgres
+  Password		= postgres
+  Port		        = 5432
+  Protocol		= 6.4
+  ReadOnly		= No
+  RowVersioning		= No
+  ShowSystemTables	= No
+  ShowOidColumn		= No
+  FakeOidIndex		= No
+  ConnSettings		= 
+  Server		= localhost
+
+=head1 ODBC API
+
+UnixODBC.pm implements a subset of the ODBC API.  The UnixODBC.pm API
+differs from the standard C-language ODBC API in that UnixODBC.pm
+generally does not require parameters to be passed by reference.
+Where a function modifies multiple parameters, the parameter
+references are translated by UnixODBC.pm into the native ODBC
+C-language calling convention.
+
+=head2 Return Values
+
+ODBC API functions can return one of the following status values:
+
+    - $SQL_NULL_DATA
+    - $SQL_DATA_AT_EXEC
+    - $SQL_SUCCESS
+    - $SQL_SUCESS_WITH_INFO
+    - $SQL_NO_DATA
+    - $SQL_ERROR
+    - $SQL_INVALID_HANDLE
+    - $SQL_STILL_EXECUTING
+    - $SQL_NEED_DATA
+
+=head2 Direction
+
+Specifies the direction of a row fetch for calls to functions like
+B<SQLFetchScroll>, B<SQLDataSources>, and B<SQLDrivers>.  The ODBC API
+defines the following directions:
+
+  - $SQL_FETCH_FIRST
+  - $SQL_FETCH_NEXT
+  - $SQL_FETCH_PRIOR
+  - $SQL_FETCH_LAST
+  - $SQL_FETCH_ABSOLUTE
+  - $SQL_FETCH_RELATIVE
+  - $SQL_FETCH_BOOKMARK
+
+Refer to the code examples for B<SQLDrivers> and B<SQLDataSources> (below).
+
+=head2 SQLAllocHandle (I<handle_type>, I<parent_handle>, I<new_handle>)
+
+
+  # Allocate an environment handle.
+
+  $r = SQLAllocHandle ($SQL_HANDLE_ENV, $SQL_NULL_HANDLE, $evh);
+
+  # Allocate a connection handle.
+
+  $r = SQLAllocHandle ($SQL_HANDLE_DBC, $evh, $cnh);
+
+  # Allocate a statement handle.
+
+  $r = SQLAllocHandle ($SQL_HANDLE_STMT, $cnh, $sth);
+
+=head2 SQLAllocEnv (I<new_environment_handle>)
+
+
+B<SQLAllocEnv> is a shortcut for B<SQLAllocHandle> when allocating 
+an environment handle.
 
   $r = SQLAllocEnv ($evh);
 
-=head2 SQLAllocConnect ($evh,$cnh);
+=head2 SQLAllocConnect (I<environment_handle>, I<new_connection_handle>);
 
-  $r = SQLAllocConnect ($evh,$cnh);
 
-=head2 SQLColAttribute ($sth, $column_number, $attr_selector, $text_attr, $maxsize, $returned_text_length, $numeric_attr);
+B<SQLAllocConnect> is a shortcut for B<SQLAllocHandle> when allocating 
+an connection handle.
 
-  $r = SQLColAttribute ($sth, $column_number, $attr_selector,
-                        $text_attr, $maxsize, $returned_text_length, 
+  $r = SQLAllocConnect ($evh, $cnh);
+
+=head2 SQLColAttribute (I<statement_handle>, I<column_number>, I<attribute_to_select>, I<text_of_attribute>, I<maxsize>, I<returned_text_length>, I<numeric_attr>);
+
+
+Attributes defined for columns depend on the DBMS server and Driver
+implementation.  However, unixODBC defines the following column
+attributes:
+
+  - $SQL_COLUMN_COUNT
+  - $SQL_COLUMN_NAME
+  - $SQL_COLUMN_TYPE
+  - $SQL_COLUMN_LENGTH
+  - $SQL_COLUMN_PRECISION
+  - $SQL_COLUMN_SCALE
+  - $SQL_COLUMN_DISPLAY_SIZE
+  - $SQL_COLUMN_NULLABLE
+  - $SQL_COLUMN_UNSIGNED
+  - $SQL_COLUMN_MONEY
+  - $SQL_COLUMN_UPDATABLE
+  - $SQL_COLUMN_AUTO_INCREMENT
+  - $SQL_COLUMN_CASE_SENSITIVE
+  - $SQL_COLUMN_SEARCHABLESQL_COLUMN_TYPE_NAME
+  - $SQL_COLUMN_TABLE_NAME
+  - $SQL_COLUMN_OWNER_NAME
+  - $SQL_COLUMN_QUALIFIER_NAME
+  - $SQL_COLUMN_LABEL
+  - $SQL_COLUMN_DRIVER_START
+
+
+  # Display the name of first column of a table.  The $numeric_attr
+  # parameter is unused with attributes that have text values.
+
+  $r = SQLColAttribute ($sth, 
+                        1,               # Specify column 1.
+                        $SQL_COLUMN_NAME, 
+                        $name, 
+                        $max_length, 
+                        $returned_length, 
 			$numeric_attr);
+  print "$name\n";
 
-=head2 SQLColumnPrivileges ($sth, $catalog_name, $catalog_name_length, $schema_name, $schema_name_length, $table_name, $table_name_length, $column_name, $column_name_length);
 
-  $r = SQLColumnPrivileges ($sth, $catalog_name, $catalog_name_length, 
-			    $schema_name, $schema_name_length, 
-			    $table_name, $table_name_length,
-			    $column_name, $column_name_length);
+=head2 SQLColumnPrivileges (I<statement_handle>, I<catalog_name>, I<catalog_name_length>, I<schema_name>, I<schema_name_length>, I<table_name>, I<table_name_length>, I<column_name>, I<column_name_length>);
 
-=head2 SQLColumns ($sth, $catalog_name, $catalog_name_length, $schema_name, $schema_name_length, $table_name, $table_name_length,o $column_name, $column_name_length)
 
-  $r = SQLColumns ($sth, $catalog_name, $catalog_name_length,
-		   $schema_name, $schema_name_length,
-		   $table_name, $table_name_length,
-		   $column_name, $column_name_length);
+=head2 SQLColumns (I<statement_handle>, I<catalog_name>, I<catalog_name_length>, I<schema_name>, I<schema_name_length>, I<table_name>, I<table_name_length>, I<column_name>, I<column_name_length>)
 
-=head2 SQLConnect ($cnh, $DSN, $DSN_length, $UserName, $UserName_length, $PassWord, $PassWord_length)
 
-  $r = SQLConnect ($cnh, $DSN, $DSN_length, $UserName, $UserName_length,
-		   $PassWord, $PassWord_length);
+  # Get info for each column in a table.  The table 
+  # name is required.
 
-=head2 SQLDataSources ($evh, $direction, $DSN, $DSN_max_length, $returned_DSN_length, $drivername, $drivername_max_length, $returned_driver_length )
+  $r = &UnixODBC::SQLColumns ($sth, 
+                            '', 0,
+			    '', 0,
+			    $table_name, length ($table_name),
+                            '', 0);
 
-=head2 SQLDescribeCol ($sth, $column_number, $column_name, $max_length, $returned_length, $data_type, $column_size, $decimal_digits, $nullable)
+  if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+      SQLGetDiagRec ($SQL_HANDLE_STMT, $sth, 1, $sqlstate,
+	  	   $native, $message_text, 255, $mlen);
+      exit 1;
+  }
 
-=head2 SQLDisconnect ($sth) 
+  # Display the number of columns in the result set
 
-=head2 SQLDrivers ($evh, $direction, $driver_desc, $max_desc_len, $returned_desc_length, $driver_attributes, $max_attr_length, $returned_attr_length)
+  $r = SQLNumResultCols ($sth,$ncols);
 
-=head2 SQLError ($evh, $cnh, $sth, $sqlstate, $native_error, $text, $max_len, $text_len)
+  if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+      SQLGetDiagRec ($SQL_HANDLE_STMT, $sth, 1, $sqlstate,
+	  	   $native, $message_text, 255, $mlen);
+      exit 1;
+  }
 
-=head2 SQLExecute ($sth)
+  print "$ncols Columns\n"; 
 
-=head2 SQLFetchScroll ($sth, $direction, $row_number)
+  while (1) {
 
-=head2 SQLForeignKeys ($sth, '', 0, '', 0, '', 0, '', 0, '', 0, '', 0)
+      $r = SQLFetch ($sth);
 
-=head2 SQLFreeStmt ($sth, $option)
+      last if $r == $SQL_NO_DATA;
 
-=head2 SQLFreeConnect ($cnh)
+      if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+	  SQLGetDiagRec ($SQL_HANDLE_STMT, $sth, 1, $sqlstate,
+		         $native, $message_text, 255, $mlen);
 
-=head2 SQLFreeHandle ($handle_type, $handle)
+  	exit 1;
 
-=head2 SQLGetConnectAttr ($cnh, <attrib>, $buf, $buflen, $rlen)
+      }
 
-=head2 SQLGetCursorName ($sth, $resultbuffer, 255, $length)
+      foreach my $cn (1..$ncols) {
 
-=head2 SQLGetData ($sth, $column_number, <sqltype>, $buf, $column_width, $rlen)
+	  $r = SQLGetData ($sth, $cn, $SQL_C_CHAR, $rbuf, 255, $mlen);
 
-=head2 SQLGetDiagField ($SQL_HANDLE_DBC, $cnh, 1, $SQL_DIAG_RETURNCODE, $ibuf, 255, $mlen)
+  	  if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+	      SQLGetDiagRec ($SQL_HANDLE_STMT, $sth, 1, $sqlstate,
+			   $native, $message_text, 255, $mlen);
 
-=head2 SQLGetDiagRec
+	      exit 1;
+	  }
 
-=head2 SQLGetEnvAttr ($evh, <attrib>, $buf, $buflen, $rlen)
+	  print "$rbuf\t";  # Tabs delimit fields in the output.
+      }
 
-=head2 SQLGetFunctions ($cnh, $function, $supported)
+      print "\n";  # Newlines delimit rows in the output.
+  } 
 
-=head2 SQLGetInfo ($cnh, $attr, $buf, $buflen, $rlen)
+The result set contains at least the following information for each
+column:
 
-=head2 SQLGetStmtAttr ($sth, $SQL_ATTR_ROW_NUMBER, $resultbuffer, 255, $length)
+  - Catalog Name
+  - Schema Name
+  - Table Name
+  - Column Name
+  - SQL Data Type (Numeric Code)
+  - Data Type Name
+  - Column Size
+  - Data Length
+  - Decimal Digits
+  - Radix (10 or 2)
+  - Nullable
 
-=head2 SQLGetTypeInfo ($sthandle, $SQL_ALL_TYPES)
+=head2 SQLConnect (I<connection_handle>, I<dsn>, I<dsn_length>, I<username>, I<username_length>, I<password>, I<password_length>)
 
-=head2 SQLMoreResults ($sth)
+  # Connect to a Data Source.
 
-=head2 SQLNumResultCols ($sth, $ncols)
+  $r = SQLConnect ($cnh, 
+		   $DSN, 
+		   length ($DSN), 
+		   $UserName, 
+		   length ($UserName),
+		   $PassWord, 
+		   length ($PassWord));
 
-=head2 SQLPrepare ($sth, $query, length ($query))
+  if ($r != $SQL_SUCCESS) {
+    SQLGetDiagRec ($SQL_HANDLE_STMT, $sth, $diagrecno, 
+                   $sqlstate, $native, $buf, $buflen, $rlen);
+  }
 
-=head2 SQLPrimaryKeys ($sth, '', 0, '', 0, 'titles', 6)
 
-=head2 SQLProcedureColumns ($sth, '', 0, '', 0, '', 0, '', 0)
+=head2 SQLDataSources (I<environment_handle>, I<direction>, I<DSN>, I<DSN_max_length>, I<returned_DSN_length>, I<drivername>, I<drivername_max_length>, I<returned_driver_length> )
 
-=head2 SQLProcedures ($sth, '', 0, '', 0, '', 0)
+  # Print a list of DSNs and their drivers.
 
-=head2 SQLRowCount ($sth,$nrows)
+  # Fetch names of the first DSN and Driver.
+
+  $r = SQLDataSources ( $envhandle,
+                        $SQL_FETCH_FIRST,
+	                $dsn_buf, 
+                        $buflen,
+                        $rlen1,
+			$driver_buf, 
+                        $buflen, 
+                        $rlen2);
+
+  if (($r != $SQL_SUCCESS) && ($r != $SQL_NO_DATA)) {
+      SQLGetDiagRec ($SQL_HANDLE_ENV, $envhandle, $diagrecno, 
+                     $sqlstate, $native, $buf, $buflen, $rlen);
+
+      exit 1;
+  }
+
+  print "$dsn_buf -- $driver_buf\n";
+
+  # Fetch the names of the following DSNs and Drivers.
+  
+  while ($r != $SQL_NO_DATA) {
+
+      $r = SQLDataSources ($envhandle, 
+                           $SQL_FETCH_NEXT,
+		           $dsn_buf, 
+                           $buflen, 
+                           $rlen1,
+		           $driver_buf, 
+                           $buflen, 
+                           $rlen2);
+
+      if (($r != $SQL_SUCCESS) && ($r != $SQL_NO_DATA)) {
+
+	  SQLGetDiagRec ($SQL_HANDLE_ENV, $envhandle, $diagrecno, 
+                         $sqlstate, $native, $buf, $buflen, $rlen);
+
+	  exit 1;
+      }
+
+      print "$dsnname -- $drivername\n";
+  }
+
+=head2 SQLDescribeCol (I<statement_handle>, I<column_number>, I<column_name>, I<max_length>, I<returned_length>, I<data_type>, I<column_size>, I<decimal_digits>, I<nullable>)
+
+
+B<SQLDescribeCol> is called after B<SQLPrepare>.
+
+  $r = SQLDescribeCol ($sth, 
+		       1,               # Select column 1.
+		       $name, 
+		       255, 
+		       $name_length, 
+		       $type, 
+		       $size, 
+		       $decimal_places, 
+		       $nullable);
+
+  if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+
+      SQLGetDiagRec ($SQL_HANDLE_ENV, $envhandle, $diagrecno, 
+                     $sqlstate, $native, $buf, $buflen, $rlen);
+
+      exit 1;
+  }
+
+  print "$name, $type, $size, $decimal_places, $nullable\n";
+
+
+=head2 SQLDisconnect (I<statement_handle>) 
+
+ $r = SQLDisconnect ($sth);
+
+=head2 SQLDrivers (I<environment_handle>, I<direction>, I<driver_description>, I<maximum_description_length>, I<returned_description_length>, I<driver_attributes>, I<maximum_attribute_length>, I<returned_attribute_length>)
+
+
+Fetch a list of Drivers and their descriptions.
+
+
+  # Fetch the name and description of the first Driver.
+
+  $r = SQLDrivers ($envhandle, 
+		   $SQL_FETCH_FIRST, 
+		   $driver_buf,
+		   $buflen, 
+		   $rlen1, 
+		   $desc_buf,
+		   $buflen, 
+                   $rlen2);
+
+  if (($sqlresult != $SQL_SUCCESS) && ($sqlresult != $SQL_NO_DATA)) {
+      SQLGetDiagRec ($SQL_HANDLE_ENV, $envhandle, $diagrecno, 
+                     $sqlstate, $native, $buf, $buflen, $rlen);
+
+      exit 1;
+  }
+
+  print "$driver_buf, $desc_buf\n";
+
+  # Fetch the names and descriptions of the following drivers.
+
+  while (1) {
+      $r = 
+	  SQLDrivers ($envhandle, 
+		      $SQL_FETCH_NEXT, 
+		      $driver_buf, 
+		      $buflen,
+		      $rlen1, 
+		      $desc_buf,
+		      $buflen, 
+		      $rlen2);
+
+      # Exit the while loop if no more entries.
+
+      last if $r == $SQL_NO_DATA;
+
+      if ($r != $SQL_SUCCESS) {
+	  SQLGetDiagRec ($SQL_HANDLE_ENV, $envhandle, $diagrecno, 
+                         $sqlstate, $native, $buf, $buflen, $rlen);
+
+	  exit 1;
+      }
+
+      print "$driver_buf, $desc_buf\n";
+
+  }
+
+=head2 SQLError (I<environment_handle>, I<connection_handle>, I<statement_handle>, I<sqlstate>, I<native_error>, I<text>, I<maximum_length>, I<text_length>)
+
+=head2 SQLExecute (I<statement_handle>)
+
+Executes a query prepared by B<SQLPrepare> (below).
+
+=head2 SQLFetch (I<statement_handle>)
+
+
+Fetches the next row of the result set of a query.
+
+  # Fetch rows of a result set that contains 5 columns.
+
+  while (1) {
+      $r = SQLFetch ($sth);
+
+      # Exit the loop if there are no more rows to be fetched.
+
+      last if $r == $SQL_NO_DATA;
+
+      foreach my $column_number (1..$total_columns_in_result_set) {
+	  $r = SQLGetData ($sth, 
+			   $column_number, 
+			   $SQL_C_CHAR, 
+			   $col_data, 
+			   255, 
+			   $column_len);
+
+	  print "$col_data\t";  # Tab is column delimiter in output.
+      }
+
+      print "\n"; # Newline is row delimiter.
+  }
+
+=head2 SQLFetchScroll (I<sth>, I<direction>, I<row_number>)
+
+
+Fetches data rows while specifying direction and row number.
+
+  # Query Data source tables, then fetch and display
+  # table names.
+
+  $r = SQLTables ($sth, '', 0, '', 0, '', 0, '', 0);
+
+  if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+      SQLGetDiagRec ($SQL_HANDLE_STMT, $sth, $diagrecno, 
+		     $sqlstate, $native, $buf, 
+		     $buflen, $rlen);
+      exit 1;
+  }
+
+  my $row = 0;
+
+  $r = SQLFetchScroll ($sth, 
+		       $SQL_FETCH_FIRST,
+		       ++$row);
+
+  if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+      SQLGetDiagRec ($SQL_HANDLE_STMT, $sth, $diagrecno, 
+		     $sqlstate, $native, $buf, 
+		     $buflen, $rlen);
+
+      exit 1;
+  }
+
+  # Table name is 3rd column of results.
+
+  $r = SQLGetData ($sth, 
+		   3,
+		   $SQL_C_CHAR, 
+		   $table_name, 
+		   $buflen, 
+		   $rlen);
+
+  if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+      SQLGetDiagRec ($SQL_HANDLE_STMT, $sth, $diagrecno, $sqlstate, 
+			 $native, $buf, $buflen, $rlen);
+
+      exit 1;
+  }
+
+  print "$row. $table_name\n";
+
+  while (1) {
+      $r = SQLFetchScroll ($sth,
+			   $SQL_FETCH_NEXT,
+			   ++$row);
+
+    # Exit while loop if there are no more rows to fetch.
+
+    last if $r == $SQL_NO_DATA;
+
+    # Table name is 3rd column of results.
+
+    $r = SQLGetData ($sth, 
+		     3,  
+		     $SQL_C_CHAR, 
+		     $table_name, 
+		     255, 
+		     $table_name_len);
+
+      print "$row. $table_name\n";
+  }
+
+  if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+      SQLGetDiagRec ($SQL_HANDLE_STMT, $sth, $diagrecno, 
+		     $sqlstate, $native, $buf, 
+		     $buflen, $rlen);
+
+      exit 1;
+  }
+
+=head2 SQLForeignKeys (I<statement_handle>, I<native_key_table_catalog_name>, I<native_key_table_catalog_name_length>, I<native_key_table_schema_name>, I<native_key_table_schema_name_length>, I<native_key_table_name>, I<native_key_table_name_length>, I<foreign_key_catalog_name>, I<foreign_key_catalog_name_length>, I<foreign_key_table_schema_name>, I<foreign_key_table_schema_name_length>, I<foreign_key_table_name>, I<foreign_key_table_name_length>)
+
+=head2 SQLFreeStmt (I<statement_handle>, I<option>)
+
+
+  # De-allocate the statment handle after closing the cursor.
+
+  $r = SQLFreeStmt ($sth, $SQL_CLOSE);
+
+=head2 SQLFreeConnect (I<connection_handle>)
+
+
+Convenience function to de-allocate a connection handle.  Refer to
+B<SQLFreeHandle>, below.
+
+=head2 SQLFreeHandle (I<handle_type>, I<handle>)
+
+
+De-allocate a valid handle.
+
+  # De-allocate an environment handle.
+
+  $r = SQLFreeHandle ($SQL_HANDLE_ENV, $evh);
+
+  # De-allocate a connection handle.
+
+  $r = SQLFreeHandle ($SQL_HANDLE_DBC, $cnh);
+
+  # De-allocate a statement handle.
+
+  $r = SQLFreeHandle ($SQL_HANDLE_STMT, $sth);
+
+=head2 SQLGetConnectAttr (I<connection_handle>, I<attribute>, I<buffer_for_returned_data>, I<buffer_length>, I<length_of_returned_data>)
+
+
+Get information about a connection handle.  The following client
+script lists the attributes and their values for a valid connection
+handle.  The DSN, user name, and password given as command line
+arguments.
+
+  use UnixODBC qw(:all);
+  use Getopt::Long;
+
+  # ODBC Handles
+
+  my $env;
+  my $cnh;
+  my $sth;
+
+  # Return Value of Function Calls
+
+  my $r;
+
+  # Common Data Buffers and Data Lengths
+
+  my $buf;          # Buffer for results
+  my $buflen = 255; # Maximum Size of buffer.
+  my $rlen;         # Length of Returned Value.
+
+  # Variables for Diagnostic Messages
+
+  my $diagrecno = 1;
+  my $sqlstate;
+
+  ## 
+  ## DSN, username, and password from command line.
+  ##
+
+  my $DSN;
+  my $UserName;
+  my $PassWord;
+
+  # Print help and exit if true.
+
+  my $help;
+
+  my $usage=<<EOH;
+  Usage: connectinfo [--help] | [--dsn=DSN --user=username --password=password]
+    --help       Print this help and exit.
+    --dsn        Data source name.
+    --user       DBMS login name.
+    --password   DBMS login password.
+  EOH
+
+  # Get the connection options from the command line parameters.
+
+  GetOptions ('help' => \$help,
+              'dsn=s' => \$DSN,
+              'user=s' => \$UserName,
+              'password=s' => \$PassWord);
+
+  # Exit if --help option is given on the command line, or if 
+  # connection information is missing.
+
+  if ($help || (not length ($DSN)) || (not length ($UserName)) 
+            || (not length ($UserName)) || (not length ($PassWord)))
+     {
+	 print $usage;
+	 exit 1;
+     }
+
+  my %info_types = ('SQL_MAX_DRIVER_CONNECTIONS', 0,
+		    'SQL_MAX_CONCURRENT_ACTIVITIES', 1,
+		    'SQL_MAXIMUM_CONCURRENT_ACTIVITIES', 1,	
+		    'SQL_DATA_SOURCE_NAME', 2,
+		    'SQL_FETCH_DIRECTION', 8,
+		    'SQL_SERVER_NAME', 13,
+		    'SQL_SEARCH_PATTERN_ESCAPE', 14,
+		    'SQL_DBMS_NAME', 17,
+		    'SQL_DBMS_VER', 18,
+		    'SQL_ACCESSIBLE_TABLES', 19,
+		    'SQL_ACCESSIBLE_PROCEDURES', 20,
+		    'SQL_CURSOR_COMMIT_BEHAVIOR', 23,
+		    'SQL_DATA_SOURCE_READ_ONLY', 25,
+		    'SQL_DEFAULT_TXN_ISOLATION', 26,
+		    'SQL_IDENTIFIER_CASE', 28,
+		    'SQL_IDENTIFIER_QUOTE_CHAR', 29,
+		    'SQL_MAXIMUM_COLUMN_NAME_LENGTH', 30,
+		    'SQL_MAXIMUM_CURSOR_NAME_LENGTH', 31,
+		    'SQL_MAXIMUM_SCHEMA_NAME_LENGTH', 32,
+		    'SQL_MAXIMUM_CATALOG_NAME_LENGTH', 34,
+		    'SQL_MAX_TABLE_NAME_LEN', 35,
+		    'SQL_SCROLL_CONCURRENCY', 43,
+		    'SQL_TXN_CAPABLE', 46,
+		    'SQL_TRANSACTION_CAPABLE', 46,
+		    'SQL_USER_NAME', 47,
+		    'SQL_TXN_ISOLATION_OPTION', 72,
+		    'SQL_TRANSACTION_ISOLATION_OPTION', 72,
+		    'SQL_INTEGRITY', 73,
+		    'SQL_GETDATA_EXTENSIONS', 81,
+		    'SQL_NULL_COLLATION', 85,
+		    'SQL_ALTER_TABLE', 86,
+		    'SQL_ORDER_BY_COLUMNS_IN_SELECT', 90,
+		    'SQL_SPECIAL_CHARACTERS', 94,
+		    'SQL_MAXIMUM_COLUMNS_IN_GROUP_BY', 97,
+		    'SQL_MAXIMUM_COLUMNS_IN_INDEX', 98,
+		    'SQL_MAXIMUM_COLUMNS_IN_ORDER_BY', 99,
+		    'SQL_MAXIMUM_COLUMNS_IN_SELECT', 100,
+		    'SQL_MAX_COLUMNS_IN_TABLE', 101,
+		    'SQL_MAXIMUM_INDEX_SIZE', 102,
+		    'SQL_MAXIMUM_ROW_SIZE', 104,
+		    'SQL_MAXIMUM_STATEMENT_LENGTH', 105,
+		    'SQL_MAXIMUM_TABLES_IN_SELECT', 106,
+		    'SQL_MAXIMUM_USER_NAME_LENGTH', 107,
+		    'SQL_OUTER_JOIN_CAPABILITIES', 115
+		    );
+
+  # Allocate an environment handle.
+
+  $r = SQLAllocHandle ($SQL_HANDLE_ENV, $SQL_NULL_HANDLE, $evh);
+
+  if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+      print "SQLAllocHandle evh: ";
+      &getdiagrec ($SQL_HANDLE_ENV, $evh);
+      exit 1;
+  }
+
+  # Set the ODBC Version.
+
+  $r = SQLSetEnvAttr($evh, $SQL_ATTR_ODBC_VERSION, $SQL_OV_ODBC2, 0);
+
+  if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+      &getdiagrec ($SQL_HANDLE_ENV, $evh);
+      exit 1;
+  }
+
+  # Allocate a connection handle.
+
+  $r = SQLAllocHandle ($SQL_HANDLE_DBC, $evh, $cnh);
+
+  if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+      &getdiagrec ($SQL_HANDLE_ENV, $evh);
+      exit 1;
+  }
+
+  # Connect to the DSN.
+
+  $r = SQLConnect ($cnh, $DSN, $SQL_NTS,
+			      $UserName, $SQL_NTS,
+			      $PassWord, $SQL_NTS);
+
+  if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+      &getdiagrec ($SQL_HANDLE_DBC, $cnh);
+      exit 1;
+  }
+
+  foreach my $it (keys %info_types) {
+
+      # SQLGetInfo will not empty $buf if there's no data for 
+      # the attribute.
+
+      $buf = '';
+
+      $r = SQLGetInfo ($cnh, $info_types{$it},$buf, $buflen, $rlen);
+
+      print "$it \= $buf\n" if length ($buf);
+  }
+
+  $r = SQLDisconnect ($cnh);
+
+  if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+      &getdiagrec ($SQL_HANDLE_DBC, $cnh);
+      exit 1;
+  }
+
+  $r = SQLFreeConnect ($cnh);
+
+  if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+      &getdiagrec ($SQL_HANDLE_DBC, $cnh);
+      exit 1;
+  }
+
+  $r = SQLFreeHandle ($SQL_HANDLE_ENV, $evh);
+
+  if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+      &getdiagrec ($SQL_HANDLE_ENV, $evh);
+      exit 1;
+  }
+
+  sub getdiagrec {
+      my ($handle_type, $handle) = @_;
+      my ($sqlstate, $native, $message_text, $mlen);
+      my $diagrecno = 1;
+
+      print 'SQLGetDiagRec: ';
+
+      $r = SQLGetDiagRec ($handle_type, $handle, $diagrecno, 
+                          $sqlstate, $native, $buf, 
+                          $buflen, $rlen);
+
+      if ($r == $SQL_NO_DATA) { 
+
+	  print "result \= SQL_NO_DATA\n";
+
+      } elsif (($r == $SQL_SUCCESS_WITH_INFO) || 
+               ($r == $SQL_SUCCESS)) { 
+
+	  print "$buf\n";
+
+      } else { 
+
+	  print "sqlresult = $r\n";
+
+      }
+
+      return $r;
+  }
+
+=head2 SQLGetCursorName (I<statement_handle>, I<result_buffer>, I<maximum_buffer_length>, I<length_of_result>)
+
+=head2 SQLGetData (I<statement_handle>, I<column_number>, I<sqltype>, I<data>, I<maximum_column_width>, I<returned_data_length>)
+
+Retrieves data for each column after a B<SQLFetch> or
+B<SQLFetchScroll>.  Refer to the examples above.
+
+=head2 SQLGetDiagField (I<handle_type>, I<handle>, I<record_number>, I<diagnostic_identifier>, I<data_buffer>, I<maximum_buffer_length>, I<length_of_returned data>)
+
+
+Get a field from a diagnostic record.  unixODBC defines the 
+following diagnostic record identifiers:
+
+  - $SQL_DIAG_RETURNCODE = 1;
+  - $SQL_DIAG_NUMBER = 2;
+  - $SQL_DIAG_ROW_COUNT = 3;
+  - $SQL_DIAG_SQLSTATE = 4;
+  - $SQL_DIAG_NATIVE = 5;
+  - $SQL_DIAG_MESSAGE_TEXT = 6;
+  - $SQL_DIAG_DYNAMIC_FUNCTION = 7;
+  - $SQL_DIAG_CLASS_ORIGIN = 8;
+  - $SQL_DIAG_SUBCLASS_ORIGIN = 9;
+  - $SQL_DIAG_CONNECTION_NAME = 10;
+  - $SQL_DIAG_SERVER_NAME = 11;
+  - $SQL_DIAG_DYNAMIC_FUNCTION_CODE = 12;
+
+
+=head2 SQLGetDiagRec (I<handle_type>, I<handle>, I<record_number>, I<SQL_state>, I<SQL_native_error>, I<error_message_buffer>, I<maximum_message_buffer_length>, I<returned_error_message_length>)
+
+
+Retrieve a diagnostic record after an ODBC function call.  Refer to
+the code examples in the entries for other functions.
+
+=head2 SQLGetEnvAttr (I<environment_handle>, I<attribute>, I<data_buffer>, I<maximum_buffer_length>, I<length_of_returned_data>)
+
+
+unixODBC defines the following attributes for environment handles:
+
+  - $SQL_ATTR_OUTPUT_NTS
+  - $SQL_ATTR_ODBC_VERSION
+  - $SQL_ATTR_CONNECTION_POOLING
+  - $SQL_ATTR_CP_MATCH
+
+  # Display the version of ODBC supported by the driver.
+
+  $result = SQLGetEnvAttr ($evh,
+                           $SQL_ATTR_ODBC_VERSION,
+                           $odbc_version,
+                           $buflen,
+                           $rlen);
+
+  print "The driver supports ODBC Version $odbc_version\n";
+
+=head2 SQLGetFunctions (I<connection_handle>, I<function>, I<supported>)
+
+Determine if a connection supports an API function.  The parameter
+I<supported> contains a boolean value.
+
+unixODBC defines the following function selectors:
+
+  - $SQL_API_SQLALLOCHANDLESTD
+  - $SQL_API_SQLBULKOPERATIONS
+  - $SQL_API_SQLALLOCCONNECT
+  - $SQL_API_SQLALLOCENV
+  - $SQL_API_SQLALLOCHANDLE
+  - $SQL_API_SQLALLOCSTMT
+  - $SQL_API_SQLBINDCOL
+  - $SQL_API_SQLBINDPARAM
+  - $SQL_API_SQLCANCEL
+  - $SQL_API_SQLCLOSECURSOR
+  - $SQL_API_SQLCOLATTRIBUTE
+  - $SQL_API_SQLCOLUMNS
+  - $SQL_API_SQLCONNECT
+  - $SQL_API_SQLCOPYDESC
+  - $SQL_API_SQLDATASOURCES
+  - $SQL_API_SQLDESCRIBECOL
+  - $SQL_API_SQLDISCONNECT
+  - $SQL_API_SQLENDTRAN
+  - $SQL_API_SQLERROR
+  - $SQL_API_SQLEXECDIRECT
+  - $SQL_API_SQLEXECUTE
+  - $SQL_API_SQLFETCH
+  - $SQL_API_SQLFETCHSCROLL
+  - $SQL_API_SQLFREECONNECT
+  - $SQL_API_SQLFREEENV
+  - $SQL_API_SQLFREEHANDLE
+  - $SQL_API_SQLFREESTMT
+  - $SQL_API_SQLGETCONNECTATTR
+  - $SQL_API_SQLGETCONNECTOPTION
+  - $SQL_API_SQLGETCURSORNAME
+  - $SQL_API_SQLGETDATA
+  - $SQL_API_SQLGETDESCFIELD
+  - $SQL_API_SQLGETDESCREC
+  - $SQL_API_SQLGETDIAGFIELD
+  - $SQL_API_SQLGETDIAGREC
+  - $SQL_API_SQLGETENVATTR
+  - $SQL_API_SQLGETFUNCTIONS
+  - $SQL_API_SQLGETINFO
+  - $SQL_API_SQLGETSTMTATTR
+  - $SQL_API_SQLGETSTMTOPTION
+  - $SQL_API_SQLGETTYPEINFO
+  - $SQL_API_SQLNUMRESULTCOLS
+  - $SQL_API_SQLPARAMDATA
+  - $SQL_API_SQLPREPARE
+  - $SQL_API_SQLPUTDATA
+  - $SQL_API_SQLROWCOUNT
+  - $SQL_API_SQLSETCONNECTATTR
+  - $SQL_API_SQLSETCONNECTOPTION
+  - $SQL_API_SQLSETCURSORNAME
+  - $SQL_API_SQLSETDESCFIELD
+  - $SQL_API_SQLSETDESCREC
+  - $SQL_API_SQLSETENVATTR
+  - $SQL_API_SQLSETPARAM
+  - $SQL_API_SQLSETSTMTATTR
+  - $SQL_API_SQLSETSTMTOPTION
+  - $SQL_API_SQLSPECIALCOLUMNS
+  - $SQL_API_SQLSTATISTICS
+  - $SQL_API_SQLTABLES
+  - $SQL_API_SQLTRANSACT
+
+=head2 SQLGetInfo (I<connection_handle>, I<attribute>, I<result>, I<maximum_result_length>, I<length_of_returned_data>)
+
+
+Get information about a connection.  unixODBC defines the following
+attributes:
+
+   - $SQL_MAX_DRIVER_CONNECTIONS
+   - $SQL_MAXIMUM_DRIVER_CONNECTIONS
+   - $SQL_MAX_CONCURRENT_ACTIVITIES
+   - $SQL_MAXIMUM_CONCURRENT_ACTIVITIES
+   - $SQL_DATA_SOURCE_NAME
+   - $SQL_FETCH_DIRECTION
+   - $SQL_SERVER_NAME
+   - $SQL_SEARCH_PATTERN_ESCAPE
+   - $SQL_DBMS_NAME
+   - $SQL_DBMS_VER
+   - $SQL_ACCESSIBLE_TABLES
+   - $SQL_ACCESSIBLE_PROCEDURES
+   - $SQL_CURSOR_COMMIT_BEHAVIOR
+   - $SQL_DATA_SOURCE_READ_ONLY
+   - $SQL_DEFAULT_TXN_ISOLATION
+   - $SQL_IDENTIFIER_CASE
+   - $SQL_IDENTIFIER_QUOTE_CHAR
+   - $SQL_MAX_COLUMN_NAME_LEN
+   - $SQL_MAXIMUM_COLUMN_NAME_LENGTH
+   - $SQL_MAX_CURSOR_NAME_LEN
+   - $SQL_MAXIMUM_CURSOR_NAME_LENGTH
+   - $SQL_MAX_SCHEMA_NAME_LEN
+   - $SQL_MAXIMUM_SCHEMA_NAME_LENGTH
+   - $SQL_MAX_CATALOG_NAME_LEN
+   - $SQL_MAXIMUM_CATALOG_NAME_LENGTH
+   - $SQL_MAX_TABLE_NAME_LEN
+   - $SQL_SCROLL_CONCURRENCY
+   - $SQL_TXN_CAPABLE
+   - $SQL_TRANSACTION_CAPABLE
+   - $SQL_USER_NAME
+   - $SQL_TXN_ISOLATION_OPTION
+   - $SQL_TRANSACTION_ISOLATION_OPTION
+   - $SQL_INTEGRITY
+   - $SQL_GETDATA_EXTENSIONS
+   - $SQL_NULL_COLLATION
+   - $SQL_ALTER_TABLE
+   - $SQL_ORDER_BY_COLUMNS_IN_SELECT
+   - $SQL_SPECIAL_CHARACTERS
+   - $SQL_MAX_COLUMNS_IN_GROUP_BY
+   - $SQL_MAXIMUM_COLUMNS_IN_GROUP_BY
+   - $SQL_MAX_COLUMNS_IN_INDEX
+   - $SQL_MAXIMUM_COLUMNS_IN_INDEX
+   - $SQL_MAX_COLUMNS_IN_ORDER_BY
+   - $SQL_MAXIMUM_COLUMNS_IN_ORDER_BY
+   - $SQL_MAX_COLUMNS_IN_SELECT
+   - $SQL_MAXIMUM_COLUMNS_IN_SELECT
+   - $SQL_MAX_COLUMNS_IN_TABLE
+   - $SQL_MAX_INDEX_SIZE
+   - $SQL_MAXIMUM_INDEX_SIZE
+   - $SQL_MAX_ROW_SIZE
+   - $SQL_MAXIMUM_ROW_SIZE
+   - $SQL_MAX_STATEMENT_LEN
+   - $SQL_MAXIMUM_STATEMENT_LENGTH
+   - $SQL_MAX_TABLES_IN_SELECT
+   - $SQL_MAXIMUM_TABLES_IN_SELECT
+   - $SQL_MAX_USER_NAME_LEN
+   - $SQL_MAXIMUM_USER_NAME_LENGTH
+   - $SQL_OJ_CAPABILITIES
+   - $SQL_OUTER_JOIN_CAPABILITIES
+   - $SQL_XOPEN_CLI_YEAR
+   - $SQL_CURSOR_SENSITIVITY
+   - $SQL_DESCRIBE_PARAMETER
+   - $SQL_CATALOG_NAME
+   - $SQL_COLLATION_SEQ
+   - $SQL_MAX_IDENTIFIER_LEN
+   - $SQL_MAXIMUM_IDENTIFIER_LENGTH
+
+   # Get the name and version of the DBMS server from the ODBC Driver.
+
+   $result = SQLGetInfo ($cnh,  
+                         $SQL_DBMS_NAME,
+                         $returned_dbms_name,
+                         $buflen,
+                         $rlen);
+
+   $result = SQLGetInfo ($cnh, 
+                         $SQL_DBMS_VER,
+                         $returned_dbms_version,
+                         $buflen,
+                         $rlen);
+
+   print "DBMS Server: $returned_dbms_name, " .
+    "Version: $returned_dbms_version\n";
+
+=head2 SQLGetStmtAttr (I<statement_handle>, I<attribute>, I<result>, I<maximum_result_length>, I<actual_result_length>)
+
+
+Get an attribute of a statement handle.  unixODBC defines the
+following statement attributes:
+
+  - $SQL_ATTR_APP_ROW_DESC
+  - $SQL_ATTR_APP_PARAM_DESC
+  - $SQL_ATTR_IMP_ROW_DESC
+  - $SQL_ATTR_APP_IMP_PARAM_DESC
+  - $SQL_ATTR_CURSOR_SCROLLABLE
+  - $SQL_ATTR_CURSOR_SENSITIVITY
+
+
+=head2 SQLGetTypeInfo (I<statement_handle>, I<type>)
+
+
+Get info for data types.  unixODBC defines $SQL_ALL_TYPES for the 
+type request.
+
+=head2 SQLMoreResults (I<statement_handle>)
+
+
+B<SQLMoreResults> checks if there is further data in a result set
+after a B<SQLSetPos> request.
+
+=head2 SQLNumResultCols (I<statement_handle>, I<number_of_columns>)
+
+
+Retrieves the number of columns in a result set after a query is
+executed.  Refer to the example for B<SQLColumns>, above.
+
+=head2 SQLPrepare (I<statement_handle>, I<query>, I<length_of_query>)
+
+
+Prepare a SQL query for execution.  Refer to the example in L<"ODBC Data Access Clients">, above.
+
+=head2 SQLPrimaryKeys (I<statement_handle>, I<catalog_name>, I<catalog_name_length>, I<schema_name>, I<schema_name_length>, I<table_name>, I<table_name_length>)
+
+Return a result set of primary keys for the table.  The table name is
+required.
+
+=head2 SQLProcedureColumns (I<statement_handle>, I<catalog_name>, I<catalog_name_length>, I<schema_name>, I<schema_name_length>, I<table_name>, I<table_name_length>, I<column_name>, I<column_name_length>)
+
+=head2 SQLProcedures (I<statement_handle>, I<catalog_name>, I<catalog_name_length>, I<schema_name>, I<schema_name_length>, I<table_name>, I<table_name_length>)
+
+=head2 SQLRowCount (I<statement_handle>, I<rows_in_result_set>)
+
+
+Retrieve the number of rows in the result set of a SQL query.
 
 =head2 SQLSetConnectAttr ($cnh, <attrib>, <value>, <length>)
 
-  # deprecated
 
-=head2 SQLSetConnectOption 
+unixODBC defines the following B<SQLSetConnectAttr> attributes:
 
-=head2 SQLSetCursorName ($sth, $cursorname, length ($cursorname))
+ - $SQL_ATTR_AUTO_IPD
+ - $SQL_ATTR_METADATA_ID
 
-=head2 SQLSetEnvAttr ($evh, <attrib>, <value>, <length>)
+B<SQLSetConnectAttr> is deprecated in the ODBC standard.
 
-=head2 SQLSetPos ($sth, 1, $SQL_POSITION, $SQL_LOCK_NO_CHANGE)
+=head2 SQLSetConnectOption (I<connection_handle>, I<attribute>, I<value>)
 
-=head2 SQLSetScrollOptions($sth, f_concurrency, crow_keyset, crow_rowset)
+=head2 SQLSetCursorName (I<statement_handle>, I<cursor_name>, I<length_of_cursor_name>)
 
-=head2 SQLSetStmtAttr ($sth, $SQL_ATTR_METADATA_ID, '1', length ('1'))
-
-=head2 SQLSpecialColumns ($sth, $SQL_ROWVER, '', 0, '', 0, 'titles', 6, $SQL_SCOPE_CURROW, 0)
-
-=head2 SQLStatistics ($sth, '', 0, '', 0, 'titles', 6, 1, 1)
-
-=head2 SQLTablePrivileges ($sth, $catalog_name, $catalog_name_length, $schema_name, $schema_name_length, $table_name, $table_name_length)
-
-=head2 SQLTables ($sth, $catalog_name, $catalog_name_length, $schema_name, $schema_name_length, $table_name, $table_name_length, $column_name, $column_name_length)
+=head2 SQLSetEnvAttr (I<environment_handle>, <attrib>, <value>, <length>)
 
 
-=head2   dm_log_open ('programname', 'logfilename');
+Set an attribute of an environment handle.  unixODBC defines the
+following environment attributes:
+
+ - $SQL_ATTR_OUTPUT_NTS
+ - $SQL_ATTR_ODBC_VERSION
+ - $SQL_ATTR_CONNECTION_POOLING
+ - $SQL_ATTR_CP_MATCH
+
+Refer to the example for B<SQLGetConnectAttr> and the sample client in 
+L<"ODBC Data Access Clients">, above.
+
+=head2 SQLSetPos (I<statement_handle>, I<row>, I<option>, I<lock>)
+
+=head2 SQLSetScrollOptions(I<statement_handle>, I<concurrency>, I<row_keyset>, I<row_rowset>)
+
+=head2 SQLSetStmtAttr (I<statement_handle>, I<attribute>, I<value>, I<length_of_value>)
+
+=head2 SQLSpecialColumns (I<statement_handle>, I<identifier_type>, I<catalog_name>, I<catalog_name_length>, I<schema_name>, I<schema_name_length>, I<table_name>, I<table_name_length>, I<scope>, I<nullable>)
+
+=head2 SQLStatistics (I<statement_handle>, I<catalog_name>, I<catalog_name_length>, I<schema_name>, I<schema_name_length>, I<table_name>, I<table_name_length>, I<unique>, I<reserved>)
+
+=head2 SQLTablePrivileges (I<statement_handle>, I<catalog_name>, I<catalog_name_length>, I<schema_name>, I<schema_name_length>, I<table_name>, I<table_name_length>)
+
+=head2 SQLTables (I<statement_handle>, I<catalog_name>, I<catalog_name_length>, I<schema_name>, I<schema_name_length>, I<table_name>, I<table_name_length>, I<column_name>, I<column_name_length>)
+
+
+The following script prints a list of tables for a DSN given on the
+command line.
+
+  use UnixODBC qw(:all);
+  use Getopt::Long;
+
+  # ODBC Handles
+
+  my $env;
+  my $cnh;
+  my $sth;
+
+  # Function Return Value
+
+  my $r;
+
+  # Data Buffers and Lengths
+
+  my $buf;
+  my $buflen = 255;   # Maximum length of parameter data.
+  my $rlen;           # Actual length of returned data.
+
+  ## 
+  ## DSN, username, and password from command line arguments.
+  ##
+
+  my $DSN;
+  my $UserName;
+  my $PassWord;
+  my $Verbose = '';
+
+  # Help Text
+
+  my $usage=<<EOH;
+  Usage: sqltables [--help] | [--verbose] [--dsn=DSN --user=username --password=password]
+    --help       Print this help and exit.
+    --verbose    Print tables' catalog, schema, name, and type.
+    --dsn        Data source name.
+    --user       DBMS login name.
+    --password   DBMS login password.
+  EOH
+
+  # Get the DSN and login data from the command line.
+
+  GetOptions ('help' => \$help,
+  	      'verbose' => \$Verbose,
+	      'dsn=s' => \$DSN,
+	      'user=s' => \$UserName,
+	      'password=s' => \$PassWord);
+
+  # If necessary print the help message and exit.
+
+  if ($help || (not length ($DSN)) || (not length ($UserName)) 
+	        || (not length ($UserName)) || (not length ($PassWord)))
+       {
+	   print $usage;
+	   exit 1;
+       }
+
+  # Fields defined in SQLTables result set.
+
+  my ($table_cat, $table_schem, $table_name, $table_type, $remarks);
+
+  # Allocate Environment Handle.
+
+  $r = SQLAllocHandle ($SQL_HANDLE_ENV, $SQL_NULL_HANDLE, $evh);
+
+  if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+      print "SQLAllocHandle evh: ";
+      getdiagrec ($SQL_HANDLE_ENV, $evh);
+      exit 1;
+  }
+
+  # Set the ODBC Version
+
+  $r = SQLSetEnvAttr($evh, $SQL_ATTR_ODBC_VERSION, $SQL_OV_ODBC2, 0);
+
+  if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+      getdiagrec ($SQL_HANDLE_ENV, $evh);
+      exit 1;
+  }
+
+  # Allocate a connection handle.
+
+  $r = SQLAllocHandle ($SQL_HANDLE_DBC, $evh, $cnh);
+
+  if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+      getdiagrec ($SQL_HANDLE_ENV, $evh);
+      exit 1;
+  }
+
+  # Connect to the DSN given on the command line.
+
+  $r = SQLConnect ($cnh, $DSN, $SQL_NTS,
+	  	   $UserName, $SQL_NTS,
+		   $PassWord, $SQL_NTS);
+
+  if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+      getdiagrec ($SQL_HANDLE_DBC, $cnh);
+      exit 1;
+  }
+
+  # Allocate a statement handle.
+
+  $r = SQLAllocHandle ($SQL_HANDLE_STMT, $cnh, $sth);
+
+  if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+      getdiagrec ($SQL_HANDLE_DBC, $cnh);
+      exit 1;
+  }
+
+  # Get table information.  Blank parameters are treated as matching 
+  # every catalog, schema, table, and column for the DSN.
+
+  $r = SQLTables ($sth, '', 0, '', 0, '', 0, '', 0);
+
+  if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+      getdiagrec ($SQL_HANDLE_STMT, $sth);
+      exit 1;
+  }
+
+  while (1) {
+
+      # Fetch the next row of data.
+
+      $r = SQLFetch ($sth);
+
+      # Exit the while loop if there are no more rows to fetch.
+
+      last if $r == $SQL_NO_DATA;
+
+      $r = SQLGetData ($sth, 1, $SQL_C_CHAR, $table_cat, $buflen, $rlen);
+      $r = SQLGetData ($sth, 2, $SQL_C_CHAR, $table_schem, $buflen, $rlen);
+      $r = SQLGetData ($sth, 3, $SQL_C_CHAR, $table_name, $buflen, $rlen);
+      $r = SQLGetData ($sth, 4, $SQL_C_CHAR, $table_type, $buflen, $rlen);
+      $r = SQLGetData ($sth, 5, $SQL_C_CHAR, $remarks, $buflen, $rlen);
+
+      # Delimit fields with tabs and lines with newlines.
+
+      if ($Verbose) {
+  	  print "$table_cat\t$table_schem\t$table_name\t$table_type\t$remarks\n";
+      } else {
+	  print "$table_name\n";
+      }
+  }
+
+  if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+      getdiagrec ($SQL_HANDLE_STMT, $sth);
+      exit 1;
+  }
+
+  # Clean up.  Disconnect from DSN and de-allocate statement, 
+  # connection, and environment handles.
+
+  $r = SQLFreeHandle ($SQL_HANDLE_STMT, $sth);
+
+  if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+      getdiagrec ($SQL_HANDLE_STMT, $sth);
+      exit 1;
+  }
+
+  $r = SQLDisconnect ($cnh);
+
+  if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+      getdiagrec ($SQL_HANDLE_DBC, $cnh);
+      exit 1;
+  }
+
+  $r = SQLFreeConnect ($cnh);
+
+  if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+      getdiagrec ($SQL_HANDLE_DBC, $cnh);
+      exit 1;
+  }
+
+  $r = SQLFreeHandle ($SQL_HANDLE_ENV, $evh);
+
+  if (($r!=$SQL_SUCCESS)&&($r!=$SQL_NO_DATA)) {
+      getdiagrec ($SQL_HANDLE_ENV, $evh);
+      exit 1;
+  }
+
+  # Subroutine to print a SQL diagnostic record.
+
+  sub getdiagrec {
+      my ($handle_type, $handle) = @_;
+      my ($sqlstate, $native, $message_text, $mlen);
+      my $diagrecno = 1;
+      print 'SQLGetDiagRec: ';
+      $r = SQLGetDiagRec ($handle_type, $handle, $diagrecno, 
+			  $sqlstate, $native, $buf, $buflen,
+			  $rlen);
+      if ($r == $SQL_NO_DATA) { 
+	  print "result \= SQL_NO_DATA\n";
+      } elsif (($r == $SQL_SUCCESS_WITH_INFO) 
+	       || ($r == $SQL_SUCCESS)) { 
+	  print "$buf\n";
+      } else { 
+	  print "sqlresult = $r\n";
+      }
+
+      return $r;
+  }
+
+=head2   dm_log_open (I<program_name>, I<logfilename>);
 
 =head2   dm_log_close ();
 
-
-=head2 Using UnixODBC.pm with Apache
-
-If SQLGetDiagRec returns an error that it can't locate a library,
-the Apache environment needs to be configured so that it knows
-about all of the library directories.  If mod_env (part of the
-standard Apache configuration) is installed, use the SetEnv
-directive in the httpd.conf file.  
-
-For MySQL and MyODBC, this directive in httpd.conf solves the problem:
-
-SetEnv LD_LIBRARY_PATH /lib:/usr/lib:/usr/local/lib:/usr/local/mysql/lib/mysql
 
 =head2 EXPORT
 
@@ -2571,6 +3920,8 @@ Robert Allan Kiesling <rkiesling@earthlink.net>
 
 perl(1), tkdm(1), UnixODBC::BridgeServer(3)
 
-The source code for unixODBC. 
+The unixODBC programmer and reference manuals at:
+http://www.unixodbc.org/ and the ODBC reference library at
+http://msdn.microsoft.com/.
 
 =cut

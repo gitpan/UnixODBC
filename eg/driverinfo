@@ -1,4 +1,7 @@
-#!/usr/local/bin/perl
+#!/usr/bin/perl
+
+# $Id: driverinfo,v 1.5 2003/07/13 18:09:55 kiesling Exp $
+$VERSION=1.0;
 
 use UnixODBC qw (:all);
 use Getopt::Long;
@@ -17,7 +20,7 @@ if ($help) {
 }
 
 my ($envhandle, $sqlresult, $dsnname, $drivername);
-my ($driver_desc,$pcb_driver_desc,$driver_attributes, $pcb_attr_max);
+my ($driver_desc,$desc_length,$driver_attributes, $attr_length);
 
 $sqlresult = SQLAllocHandle ($SQL_HANDLE_ENV,$SQL_NULL_HANDLE,$envhandle);
 if ($sqlresult != $SQL_SUCCESS) {
@@ -33,27 +36,25 @@ if ($sqlresult != $SQL_SUCCESS) {
 }
 
 $sqlresult = SQLDrivers ($envhandle, $SQL_FETCH_FIRST, $driver_desc,
-			 255, $pcb_driver_desc, $driver_attributes,
-			 255, $pcb_attr_max);
+			 255, $desc_length, $driver_attributes,
+			 255, $attr_length);
 if (($sqlresult != $SQL_SUCCESS) && ($sqlresult != $SQL_NO_DATA)) {
     &getdiagrec ($SQL_HANDLE_ENV, $envhandle);
     exit 1;
 }
 print "$driver_desc, $driver_attributes\n";
 
-if ($sqlresult==$SQL_SUCCESS) {
-    while (1) {
-	$sqlresult = 
-	    SQLDrivers ($envhandle, $SQL_FETCH_NEXT, $driver_desc, 255,
-			$pcb_driver_desc, $driver_attributes,
-			255, $pcb_attr_max);
-	if (($sqlresult != $SQL_SUCCESS) && ($sqlresult != $SQL_NO_DATA)) {
-	    &getdiagrec ($SQL_HANDLE_ENV, $envhandle);
-	    exit 1;
-	}
-	last if $sqlresult = $SQL_NO_DATA;
-	print "$driver_desc, $driver_attributes\n";
+while (1) {
+    $sqlresult = 
+	SQLDrivers ($envhandle, $SQL_FETCH_NEXT, $driver_desc, 255,
+		    $desc_length, $driver_attributes,
+		    255, $attr_length);
+    if (($sqlresult != $SQL_SUCCESS) && ($sqlresult != $SQL_NO_DATA)) {
+	&getdiagrec ($SQL_HANDLE_ENV, $envhandle);
+	exit 1;
     }
+    print "$driver_desc, $driver_attributes\n";
+    last if $sqlresult == $SQL_NO_DATA;
 }
 
 $sqlresult = SQLFreeHandle ($SQL_HANDLE_ENV, $envhandle);
@@ -79,4 +80,40 @@ sub getdiagrec {
     }
     return $sqlresult;
 }
+
+=head1 NAME
+
+driverinfo - Display ODBC drivers and descriptions.
+
+=head1 SYNOPSIS
+
+driverinfo [--help]
+
+=head1 DESCRIPTION
+
+Driverinfo prints the names and descriptions of a system's ODBC
+drivers.
+
+=head1 OPTIONS
+
+=head2 --help
+
+Print help message and exit.
+
+=head1 VERSION INFORMATION AND CREDITS
+
+Revision: $Revision: 1.5 $
+
+Written by: Robert Allan Kiesling <rkiesling@earthlink.net>.
+
+Licensed under the same terms as Perl.  Please refer to the
+file "Artistic" for details.
+
+=head1 SEE ALSO
+
+perl(1), UnixODBC(3), UnixODBC::BridgeServer(3).
+
+=cut
+
+
 

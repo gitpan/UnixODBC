@@ -7,6 +7,7 @@ UnixODBC.pm Installation
   - Installing UnixODBC.pm
   - Testing UnixODBC.pm
   - Installing and configuring the bridge server
+  - Installing the GUI data manager, tkdm
   - Installing the Web data manager
   - Example scripts 
   - Troubleshooting
@@ -33,6 +34,10 @@ to the section, "Installing the Web data manager,"
 below. There is also desktop data manager that uses Perl/Tk to
 provide a graphical user interface for queries on networked
 ODBC systems.  Refer to the file "INSTALL" in the tkdm subdirectory.
+
+Be sure also to consult dbms/README for information about operating
+system and DBMS server compatibility and DBMS server installation
+notes.
 
 
 - Installing UnixODBC.pm
@@ -66,7 +71,6 @@ ODBC systems.  Refer to the file "INSTALL" in the tkdm subdirectory.
 
   $ cd UnixODBC-<version>
   $ perl Makefile.PL
-  $ make
   $ su
   # make install
 
@@ -76,10 +80,10 @@ ODBC systems.  Refer to the file "INSTALL" in the tkdm subdirectory.
   other library modules are not installed, you should install
   them before installing UnixODBC.
 
-  To run the test script test.pl, you need to have installed
-  the data in the dbms subdirectory.  Refer to "Testing
-  UnixODBC.pm," below.  You'll also need to configure the
-  ODBC driver for your DBMS and a data source using either
+  To run the test script dbms/test.pl, you need to have 
+  installed the data in the dbms subdirectory.  Refer to 
+  "Testing UnixODBC.pm," below.  You'll also need to configure 
+  the ODBC driver for your DBMS and a data source using either
   odbcinst or ODBCConfig.
 
   Standard Disclaimer - UnixODBC.pm and the client and server 
@@ -99,11 +103,14 @@ ODBC systems.  Refer to the file "INSTALL" in the tkdm subdirectory.
   UnixODBC.pm is known to work with MySQL and PostgreSQL on Linux
   and Solaris systems.
 
-  The test.pl script excercises the unixODBC API.  For most of the
-  tests to complete successfully, you need to have installed the
-  test data in the dbms/ subdirectory, and to have configured a DSN
-  for the test data.  Refer to the file dbms/README for notes about
-  MySQL and PostgreSQL DBMS's.
+  Running "make test" makes sure that the library modules load 
+  correctly.  
+
+  The dbms/test.pl script excercises the unixODBC API more thoroughly.  
+  For the script to complete, you need to have installed the test data 
+  in the dbms/ subdirectory, and to have configured a DSN for the test 
+  data.  Refer to the file dbms/README for notes about MySQL and 
+  PostgreSQL DBMS's.
 
   Running test.pl is likely to result in at least a few errors.
   The script is designed to test the subset of ODBC API functions
@@ -139,30 +146,48 @@ ODBC systems.  Refer to the file "INSTALL" in the tkdm subdirectory.
   RPC::PlServer and RPC::PlClient, and the ProxyServer.pm module
   in the Perl DBI bundle.
 
-  Install UnixODBC.pm.  Create the directories /usr/local/etc,
+  Install UnixODBC.pm.  If the installation proceeded 
+  correctly, everything should be installed in the proper
+  directories, and you should be able to start and stop
+  the bridge server daemon by typing:
+
+    # /usr/local/etc/init.d/unixodbc start
+    # /usr/local/etc/init.d/unixodbc stop
+
+  Manual Installation - Create the directories /usr/local/etc,
   /usr/local/var, and /usr/local/sbin if they don't exist 
   already, Then,
 
-  $ su
-  # mkdir /usr/local/var/odbcbridge
-  # chown nobody /usr/local/var/odbcbridge
-  # cp bridge/odbcbridge.conf /usr/local/etc
-  # cp bridge/odbcbridge /usr/local/sbin
-  # chmod +x /usr/local/sbin/odbcbridge
+    $ su
+    # mkdir /usr/local/var/odbcbridge
+    # chown nobody /usr/local/var/odbcbridge
+    # cp bridge/odbcbridge.conf /usr/local/etc
+    # cp bridge/odbclogins /usr/local/etc
+    # chmod 0600 /usr/local/etc/odbclogins
+    # chown nobody /usr/local/etc/odbclogins
+    # mkdir /usr/local/etc/init.d
+    # cp bridge/unixodbc /usr/local/etc/init.d
+    # cp bridge/odbcbridge /usr/local/sbin
+    # chmod +x /usr/local/sbin/odbcbridge
 
   If everything is installed correctly, you should be able
-  to start the server by typing:
+  to start and stop the server by typing:
 
-  # /usr/local/sbin/odbcbridge &
+    # /usr/local/etc/init.d/unixodbc start
+    # /usr/local/etc/init.d/unixodbc stop
 
   If you want to start the server when the system starts, install
   the unixodbc script in the same directory as the other local
-  startup scripts - /usr/local/etc/init.d is a good location.  
-  Change the permissions on the script so that it is executable.
-  Edit LD_LIBRARY_PATH so it contains the directories of all 
-  the libraries ODBC needs to find.  Refer to the system
-  administration documents for information about how to start 
-  daemons during system initialization.
+  startup scripts, refer to the system administration documents for 
+  information about how to start daemons during system 
+  initialization.
+
+
+- Installing the GUI data manager, tkdm
+
+  The GUI data manager, tkdm is installed when UnixODBC.pm is 
+  installed.  Refer to the man page ("man tkdm") and the 
+  tkdm/README file for instructions about configuring tkdm.
 
 
 - Installing the Web data manager
@@ -290,18 +315,16 @@ ODBC systems.  Refer to the file "INSTALL" in the tkdm subdirectory.
 
   The bridge/ directory contains example clients for remote DSN's.
 
-  sampleclient - A sample script for testing ODBC function calls
-  using the peer-to-peer bridge.
+  sampleclient and sampleclient2 - Sample script for testing ODBC 
+  function calls using the peer-to-peer bridge.
 
-  remotedsn - List the DSN's of a remote system.  Edit the 
-  'peeraddr' parameter of RPC::PlClient -> new with the name or 
-  IP address of the remote host.
+  remotedsn - List the DSN's of a remote system.  Refer to the
+  man page ("man remotedsn") for a description of its command
+  line parameters or type "remotedsn --help".
 
-  remotetables - List the tables of a remote DSN.  Edit the 
-  'peeraddr' parameter of RPC::PlClient -> new with the name or 
-  IP address of the remote host, and the variables $DSN, $UserName, 
-  and $PassWord to log into the remote data source.
-
+  remotetables - List the tables of a remote DSN.  Refer to
+  the man page ("man remotetables") or type "remotetables 
+  --help" for a description of the command line arguments.
 
 - Troubleshooting
 
@@ -316,7 +339,16 @@ ODBC systems.  Refer to the file "INSTALL" in the tkdm subdirectory.
     can make a symlink from the actual Perl interpreter, or change 
     the first line in each script to the path of the perl binary.  
 
-  - If the data manager can connect to local data sources but not
+  - "Failed to make first connection..." to a DSN generally
+    means that either the remote bridge server is not running,
+    you were not able to log in, or the perl and library versions
+    of the systems are different.  Check the installation
+    and configuration of the bridge server (above and "man 
+    odbcbrigde"), and make sure that you can make a connection to 
+    the remote DSN with a text-mode client like remotedsn ("man
+    remotedsn") or remotetables ("man remotetables").
+
+    If the data manager can connect to local data sources but not
     remote data sources, the problem is likely in the RPC network
     layer.  Make sure that the versions of Perl, Net::Daemon,
     Storable, and RPC::PlServer are the same on the local and
@@ -379,3 +411,5 @@ UnixODBC.pm is written by Robert Allan Kiesling
 Copyright 2002-2003 by Robert Allan Kiesling and licensed using
 the same terms as Perl.  Refer to the file "Artistic" for the 
 details.
+
+$Id: README,v 1.4 2003/07/14 18:12:51 kiesling Exp $

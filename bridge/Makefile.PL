@@ -1,7 +1,4 @@
-# See lib/ExtUtils/MakeMaker.pm for details of how to influence
-# the contents of the Makefile that is written.
-
-# $Id: Makefile.PL,v 1.4 2003/07/13 17:12:35 kiesling Exp $
+# $Id: Makefile.PL,v 1.2 2003/07/14 13:43:08 kiesling Exp $
 
 my $makefile = <<EOMAKEFILE;
 all: install
@@ -13,10 +10,10 @@ clean:
 	rm -f Makefile Makefile.old
 
 test:
-	
+	sh -c true
 EOMAKEFILE
 
-print "Creating Makefile in tkdm/.\n";
+print "Creating Makefile in bridge/.\n";
 open OUT, ">Makefile" or die "Couldn't create Makefile: $!\n";
 print OUT $makefile;
 close OUT;

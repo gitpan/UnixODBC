@@ -1,4 +1,5 @@
 #! /usr/local/bin/perl
+# $Id: remotedsn,v 1.3 2003/07/14 17:00:33 kiesling Exp $
 
 require 5.004;
 use strict;
@@ -6,14 +7,43 @@ use strict;
 require RPC::PlClient;
 use UnixODBC qw (:all);
 use UnixODBC::BridgeServer;
+use Getopt::Long;
+
+my $usage=<<EOH;
+Usage: 
+remotedsn [--help] | [--verbose] [--user=<username>] [--password=<password>] --host=<remotehost> 
+  --help       Print this help and exit.
+  --host       Remote host name or address.
+  --user       Remote host login name.
+  --password   Remote host login password.
+  --verbose    Print driver names as well as DSNs.
+EOH
+
+my $Host = '';     # Remote host name or address.
+my $UserName = ''; # Remote host login name.
+my $PassWord = ''; # Remote host login password.
+my $Verbose = '';  # Print the driver names as well as the DSNs.
+my $help;  # Print help and exit.
+
+GetOptions ('help' => \$help,
+	    'host=s' => \$Host,
+	    'user=s' => \$UserName,
+	    'verbose' => \$Verbose,
+	    'password=s' => \$PassWord);
+
+if ($help || (not length ($Host)))
+     {
+	 print $usage;
+	 exit 0;
+     }
 
 my $client = 
-    eval { RPC::PlClient->new('peeraddr' => '192.168.0.11',
+    eval { RPC::PlClient->new('peeraddr' => $Host,
 			  'peerport' => 9999,
 			  'application' => 'RPC::PlServer',
 			  'version' => $UnixODBC::VERSION,
-			  'user' => 'kiesling',
-			  'password' => 'drum') }
+			  'user' => $UserName,
+			  'password' => $PassWord) }
     or print "Failed to make first connection: $@\n";
 
 my $c = $client -> ClientObject ('BridgeAPI', 'new');
@@ -34,12 +64,21 @@ $cnh = $c -> sql_alloc_handle ($SQL_HANDLE_DBC, $evh);
 
 ($r, $dsn, $dsnlength, $driver, $driverlength) = 
     $c -> sql_data_sources ($evh, $SQL_FETCH_FIRST, 255, 255);
-print "$dsn, $driver\n";
+if ($Verbose) {
+    print "$dsn\t$driver\n";
+} else {
+    print "$dsn\n";
+}
+
 while (1) {
 ($r, $dsn, $dsnlength, $driver, $driverlength) = 
     $c -> sql_data_sources ($evh, $SQL_FETCH_NEXT, 255, 255);
     last unless $r == $SQL_SUCCESS;
-    print "$dsn, $driver\n";
+    if ($Verbose) {
+	print "$dsn\t$driver\n";
+    } else {
+	print "$dsn\n";
+    }
 }
 
 $r = $c -> sql_free_handle ($SQL_HANDLE_DBC, $cnh);
@@ -47,3 +86,55 @@ $r = $c -> sql_free_handle ($SQL_HANDLE_ENV, $evh);
 
 ($r, $sqlstate, $native, $text, $textlen) = 
     $c -> sql_get_diag_rec ($SQL_HANDLE_ENV, $evh, 1, 255);
+
+=head1 NAME
+
+remotedsn - List the data sources of a remote host.
+
+=head1 SYNOPSIS
+
+remotedsn [--help] | [--verbose] [--user=<username>] [--password=<password>] --host=<remotehost> 
+
+=head1 DESCRIPTION
+
+Lists the DSNs, and optionally the DBMS drivers, of a remote host
+that has UnixODBC.pm and UnixODBC's odbcbridge bridge server 
+installed.
+
+=head1 OPTIONS
+
+=head2 --help
+
+Print a help message and exit.
+
+=head2 --host
+
+Name or IP address of remote host.
+
+=head2 --user
+
+User login name on remote host.
+
+=head2 --password
+
+User login password on remote host.
+
+=head2 --verbose
+
+Print the names of the data source drivers as well as the data
+sources.
+
+=head1 VERSION INFORMATION AND CREDITS
+
+Revision: $Revision: 1.3 $
+
+Written by: Robert Allan Kiesling <rkiesling@earthlink.net>.
+
+Licensed under the same terms as Perl.  Please refer to the
+file "Artistic" for details.
+
+=head1 SEE ALSO
+
+perl(1), UnixODBC(3), UnixODBC::BridgeServer(3), bridgeserver(1).
+
+=cut

@@ -1,0 +1,143 @@
+# $Id: installscripts,v 1.1 2003/07/13 17:00:01 kiesling Exp $
+
+# Replace with the scripts that are to be manified and installed.
+my @apps = qw/remotedsn remotetables/;
+my @daemon = qw/odbcbridge/;
+my @startscripts = qw/unixodbc/;
+my @configfiles = qw/odbclogins odbcbridge.conf/;
+
+# Create the installation directories if they don't exist.
+my $scriptdir = '/usr/local/bin';
+my $man1dir = '/usr/local/man/man1';
+my $daemondir = '/usr/local/sbin';
+my $startscriptdir = '/usr/local/etc/init.d';
+my $confdir = '/usr/local/etc';
+my $piddir = '/usr/local/var/odbcbridge';
+
+# This is configured in unixodbc.conf
+my $daemonuser = 'nobody';
+
+foreach my $instdir ($scriptdir, $man1dir, $daemondir, $startscriptdir, $confdir, $piddir) {
+    if (! -d $instdir) {
+	print STDERR "Directory $instdir does not exist.\n";
+	print STDERR "Should I create it? (Y/n)\n";
+	local $c = <STDIN>;
+	chomp $c;
+	if ($c =~ /n/i) {
+	    exit 1;
+	}
+	mkdirtree ($instdir, 0755);
+    }
+}
+
+my ($name,$passwd,$uid,$gid, $quota,$comment,$gcos,$dir,$shell,$expire) = 
+	getpwnam ($daemonuser);
+chown $uid, $gid, ($piddir) or 
+	warn "Could not change owner of $piddir to $daemonuser: $!\n"; 
+
+my $perl = `which perl`;
+chomp $perl;
+my $pod2man = `which pod2man`;
+chomp $pod2man;
+
+if ((! length ($perl)) || (! length ($pod2man))) {
+    print STDERR "\nThe system could not find either perl or pod2man.\n";
+    print STDERR "You need to make sure they are installed correctly\n";
+    print STDERR "and in a directory named by the \$PATH environment\n";
+    print STDERR "variable.\n";
+    exit 1;
+}
+
+
+$/ = undef;  # "slurp" mode
+foreach my $app (@apps) {
+    # set the perl interpreter.
+    print STDOUT "Setting application $app perl interpreter to $perl.\n";
+    local $apptext;
+    open IN, $app or die "Couldn't read $app: $!\n";
+    $apptext = <IN>;
+    $apptext =~ s"^\#\!.*?/perl.*?$"\#\!$perl"ism;
+    open OUT, ">/tmp/$app.out" or 
+	die "Couldn't open $app.out for writing: $!\n";
+    print OUT $apptext;
+    close OUT;
+    close IN;
+    print STDOUT "Installing $app as $scriptdir/$app\n";
+    `mv /tmp/$app.out "$scriptdir/$app"`;
+    chmod 0755, ("$scriptdir/$app");
+    `rm -f /tmp/$app.out`;
+
+    print STDOUT "Manifying $app\n";
+    `$pod2man $app > /tmp/$app.1p.out`;
+    `mv /tmp/$app.1p.out "$man1dir/$app.1p"`;
+    `rm -f /tmp/$app.1p.out`;
+}
+
+
+foreach my $app (@daemon) {
+    # set the perl interpreter.
+    print STDOUT "Setting application $app perl interpreter to $perl.\n";
+    local $apptext;
+    open IN, $app or die "Couldn't read $app: $!\n";
+    $apptext = <IN>;
+    $apptext =~ s"^\#\!.*?/perl.*?$"\#\!$perl"ism;
+    open OUT, ">/tmp/$app.out" or 
+	die "Couldn't open $app.out for writing: $!\n";
+    print OUT $apptext;
+    close OUT;
+    close IN;
+    print STDOUT "Installing $app as $daemondir/$app\n";
+    `mv /tmp/$app.out "$daemondir/$app"`;
+    chmod 0755, ("$daemondir/$app");
+    `rm -f /tmp/$app.out`;
+
+    print STDOUT "Manifying $app\n";
+    `$pod2man $app > /tmp/$app.1p.out`;
+    `mv /tmp/$app.1p.out "$man1dir/$app.1p"`;
+    `rm -f /tmp/$app.1p.out`;
+}
+
+foreach my $app (@startscripts) {
+    # set the perl interpreter.
+    local $apptext;
+    open IN, $app or die "Couldn't read $app: $!\n";
+    $apptext = <IN>;
+    open OUT, ">/tmp/$app.out" or 
+	die "Couldn't open $app.out for writing: $!\n";
+    print OUT $apptext;
+    close OUT;
+    close IN;
+    print STDOUT "Installing $app as $startscriptdir/$app\n";
+    `mv /tmp/$app.out "$startscriptdir/$app"`;
+    chmod 0755, ("$startscriptdir/$app");
+    `rm -f /tmp/$app.out`;
+}
+
+foreach my $app (@configfiles) {
+    local $apptext;
+    open IN, $app or die "Couldn't read $app: $!\n";
+    $apptext = <IN>;
+    open OUT, ">/tmp/$app.out" or 
+	die "Couldn't open $app.out for writing: $!\n";
+    print OUT $apptext;
+    close OUT;
+    close IN;
+    print STDOUT "Installing $app as $confdir/$app\n";
+    `mv /tmp/$app.out "$confdir/$app"`;
+    `rm -f /tmp/$app.out`;
+}
+
+chmod 0600, ("$confdir/odbclogins");
+
+sub mkdirtree {
+    my ($dir, $mask) = @_;
+    my ($parent) = 
+	($dir =~ /(.*)\/.*$/);
+    if (! -d $parent) {
+	mkdirtree ($parent, $mask);
+    } 
+    if (! -d $dir) {
+	print "Creating directory $dir.\n";
+    }
+    mkdir ($dir, $mask) or die "Could not make directory $dir: $!\n";
+}
