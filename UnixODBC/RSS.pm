@@ -1,8 +1,8 @@
 package UnixODBC::RSS;
 
-# $Id: RSS.pm,v 1.6 2004/03/06 22:34:00 kiesling Exp $
+# $Id: RSS.pm,v 1.9 2004/03/09 06:30:57 kiesling Exp $
 
-our $VERSION=0.01;
+our $VERSION=0.02;
 
 @ISA = qw(Exporter);
 
@@ -16,7 +16,7 @@ my $preamble = qq{<?xml version="1.0"?>
 
     Refer to UnixODBC::RSS(3) for information.
 
---!>
+-->
 };
 
 sub new {
@@ -42,7 +42,7 @@ sub Output {
     my $self = shift;
     my $resultref = $_[0];
     my $fh = $_[1];
-    my ($rows, $cols, $rref, $cidx);
+    my ($rows, $cols, $rref, $cidx, $b);
     use UnixODBC::RSS::Ver10;
     push @ISA, (UnixODBC::RSS::Ver10);
 
@@ -56,8 +56,9 @@ sub Output {
     my $colheadref = shift @$resultref;
 
     foreach my $t (qw/title description link/) {
+	$b = required_entities ($self -> {channel}{$t});
 	print $fh "    " . 
-	    $c->{"${t}open"}.$self->{channel}{$t}.$c -> {"${t}close"}."\n";
+	    $c->{"${t}open"}.$b.$c -> {"${t}close"}."\n";
     }
 
     foreach $rref (@{$resultref}) {
@@ -66,8 +67,8 @@ sub Output {
 	    foreach my $ic (keys %{$self -> {itemcolumns}} ) {
 		if ($$colheadref[$cidx] eq $ic) {
 		    local $s = $self -> {itemcolumns}{$ic};
-		    print $fh "        ". $i -> {"${s}open"} . 
-                      ${$rref}[$cidx] . 
+		    $b = required_entities (${$rref}[$cidx]);
+		    print $fh "        ". $i -> {"${s}open"} . $b .
                       $i -> {"${s}close"} . "\n";
 		}
 	    }
@@ -82,6 +83,15 @@ sub Output {
 }
 
 
+sub required_entities {
+    my $s = $_[0];
+
+    $s =~ s/\&/\&amp\;/g;
+    $s =~ s/\</\&lt\;/g;
+    $s =~ s/\>/\&gt\;/g;
+
+    return $s;
+}
 
 =head1 NAME
 
