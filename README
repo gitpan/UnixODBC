@@ -9,7 +9,7 @@ UnixODBC.pm Installation
   - Installing and configuring the bridge server
   - Installing the GUI data manager, tkdm
   - Installing the Web data manager
-  - Example scripts 
+  - Client scripts 
   - Troubleshooting
   - Copyright
 
@@ -25,19 +25,19 @@ using TCP/IP and Remote Procedure Calls, as well as simple
 bridge client and server scripts.  Refer to the section,
 "Installing and configuring the bridge server," below.
 
-In addition, there are two graphical data manager applications
-that can perform ODBC queries on networked systems: one that
-provides a Web Browser user interface and communicates with
-the UnixODBC bridge API using Apache and CGI scripts and
-provides support of enterprise-level data management.  Refer
-to the section, "Installing the Web data manager,"
-below. There is also desktop data manager that uses Perl/Tk to
-provide a graphical user interface for queries on networked
-ODBC systems.  Refer to the file "INSTALL" in the tkdm subdirectory.
+There are also sample text-mode clients (refer to the
+section, "Client scripts"), and two Graphical User Interface
+data manager applications that can perform ODBC queries on
+networked systems: one that provides a Web Browser interface
+and communicates with the UnixODBC bridge API using Apache
+and CGI scripts and another, tkdm, that uses Perl/Tk.  Refer
+to the sections, "Installing the GUI data manager, tkdm,"
+and, "Installing the Web data manager," below, and the file,
+"INSTALL" in the tkdm subdirectory.
 
-Be sure also to consult dbms/README for information about operating
-system and DBMS server compatibility and DBMS server installation
-notes.
+Be sure also to consult dbms/README for information about
+operating system and DBMS server compatibility and DBMS
+server installation notes.
 
 
 - Installing UnixODBC.pm
@@ -45,29 +45,31 @@ notes.
   UnixODBC.pm links against the unixODBC run time libraries,
   from http://www.easysoft.com, so they need to be installed 
   first.  This version of UnixODBC.pm works with version 2.2.0
-  and later of the libraries.   You'll also need the unixODBC
-  C-language include files from unixODBC to compile UnixODBC.pm.  
-  They should be installed in /usr/local/include when you install 
-  unixODBC.  If they aren't, you can find them in the include/ 
-  subdirectory of the unixODBC source code package.
+  and later of the libraries.   UnixODBC.pm also requires the 
+  unixODBC C-language include files from unixODBC to compile 
+  UnixODBC.pm.  They should be installed in /usr/local/include 
+  when you install unixODBC.  If they aren't, you can find them 
+  in the include/ subdirectory of the unixODBC source code 
+  package.
   
-  To use the bridge server (when you want to use ODBC to query
-  DBMS servers on networked systems), you'll need to have
-  installed on each host the same versions of Perl, Net::Daemon,
-  PlRPC, and the modules that they require. Tkdm requires Perl/Tk,
-  but. You can build the UnixODBC library module and the non-network 
-  text-mode programs without them.  This version of UnixODBC works 
-  with the following libraries:
+  To use the bridge server (to use ODBC to query DBMS servers on 
+  networked systems), you'll need to have installed on each host 
+  the same versions of Perl, Net::Daemon, PlRPC, and the modules 
+  that they require. Tkdm requires Perl/Tk, but.  UnixODBC.pm 
+  and the non-network text-mode programs work without the bridge 
+  server.  
+
+  This version of UnixODBC requires the following Perl libraries:
 
   - Net-Daemon-0.35 - 0.37
   - PlRPC-0.2015 - 0.2017
   - Tk800.021 - 0.23
 
-  You might also need to install Sys::Syslog.pm and Storable.pm
-  if you have an older version of Perl.
+  Versions of Perl prior to 5.6 might also need Sys::Syslog.pm and 
+  Storable.pm.
 
-  IMPORTANT - Each system must use the same versions of ALL the 
-  Perl software that UnixODBC uses - Perl, UnixODBC.pm,
+  IMPORTANT - Each host system must use the same versions of ALL 
+  the Perl software that UnixODBC uses - Perl, UnixODBC.pm,
   UnixODBC::BridgeServer.pm, Net-Daemon and PlRPC packages,
   Sys::Syslog.pm, and Storable.pm - on each networked system in
   order for the Bridge clients and servers to communicate with
@@ -81,26 +83,26 @@ notes.
   # make install
 
   If this is the first time installing UnixODBC.pm on the
-  system, you can safely ignore the warning that the UnixODBC.pm
-  module is not installed.  If you receive warning messages that
-  other library modules are not installed, you should install
-  them before installing UnixODBC.
+  system, the installation gives the warning that UnixODBC.pm is 
+  not installed.  If you receive warning messages that other 
+  library modules are not installed, you should install them 
+  before installing UnixODBC.
 
   To run the test script dbms/test.pl, you need to have 
-  installed the data in the dbms subdirectory.  Refer to 
-  "Testing UnixODBC.pm," below.  You'll also need to configure 
-  the ODBC driver for your DBMS and a data source using either
+  installed the data in the dbms subdirectory.  Refer to,
+  "Testing UnixODBC.pm," below.  The ODBC driver needs to be 
+  configured for your DBMS and a data source using either
   odbcinst or ODBCConfig.
 
   Standard Disclaimer - UnixODBC.pm and the client and server 
   scripts were written with Perl installed in /usr/local/bin.  
-  If you try to run a script and receive an error message like:
+  If Perl scripts produce an error message like:
 
   sh: ./client: no such file or directory
 
   It means the script can't find the Perl interpreter.  Either
   change the path on the first line of the script to the location
-  of the perl binary (the output of "which perl"), or create a 
+  of the perl binary (the output of, "which perl"), or create a 
   symlink /usr/local/bin/perl to the actual perl program.
 
 
@@ -109,14 +111,14 @@ notes.
   UnixODBC.pm is known to work with MySQL and PostgreSQL on Linux
   and Solaris systems.
 
-  Running "make test" makes sure that the library modules load 
+  Running, "make test," makes sure that the library modules load 
   correctly.  
 
   The dbms/test.pl script excercises the unixODBC API more thoroughly.  
-  For the script to complete, you need to have installed the test data 
-  in the dbms/ subdirectory, and to have configured a DSN for the test 
-  data.  Refer to the file dbms/README for notes about MySQL and 
-  PostgreSQL DBMS's.
+  For the script to complete, it is necessary to have installed the 
+  test data in the dbms/ subdirectory, and to have configured a DSN for 
+  the test data.  Refer to the file dbms/README for notes about MySQL 
+  and PostgreSQL DBMS's.
 
   Running test.pl is likely to result in at least a few errors.
   The script is designed to test the subset of ODBC API functions
@@ -127,25 +129,24 @@ notes.
 
 - Installing and configuring the bridge server.
 
-  IMPORTANT - The versions of Perl, Net::Daemon, Storable, and PlRPC
-  MUST be the same on all hosts.  Net::Daemon, in particular, 
-  checks for version information when authenticating, and you will 
-  get protocol errors if you try to mix versions of PlRPC, and
-  Storable also relies having compatible versions of itself and Perl
+  IMPORTANT (Again) - The versions of Perl, Net::Daemon, Storable, and 
+  PlRPC MUST be the same on all hosts.  Net::Daemon, in particular, 
+  checks for version information when authenticating, and PlRPC will 
+  generate protocol errors when communicating with different versions.
+  Storable also relies having the same version of itself and Perl
   on local and remote systems.
 
-  Perl versions 5.6.0 and 5.8.0 have been used with the bridge server, 
-  but UnixODBC and the supporting libraries listed above are not 
-  thread-safe (yet), so you may encounter thread exceptions on some 
-  systems if you installed Perl 5.8.0 configured with ithreads.
+  UnixODBC and the supporting libraries listed above are not
+  thread-safe (yet), so you may encounter thread exceptions on some
+  systems if Perl 5.8.0 has ithreads configured.
 
   Net::Daemon errors are commonly recorded in the syslog.
   Although you can configure the log messages, check the syslog
-  first. Refer to the "Troubleshooting" section, below.
+  first. Refer to the, "Troubleshooting," section, below.
 
   The bridge server runs as user nobody and uses port 9999.  To
-  change the configuration, edit /etc/odbcbridge.conf after
-  installation.  The RPC server settings are in the
+  change the configuration, edit /usr/local/etc/odbcbridge.conf 
+  after installation.  The RPC server settings are in the
   RPC::PlServer(3) man page.  Example server and client scripts
   are in the bridge/ directory.  For further examples of writing
   Perl RPC clients and servers, refer to the man pages for
@@ -182,11 +183,10 @@ notes.
     # /usr/local/etc/init.d/unixodbc start
     # /usr/local/etc/init.d/unixodbc stop
 
-  If you want to start the server when the system starts, install
-  the unixodbc script in the same directory as the other local
-  startup scripts, refer to the system administration documents for 
-  information about how to start daemons during system 
-  initialization.
+  To start the server when the system starts, install the unixodbc 
+  script in the same directory as the other local startup scripts, 
+  refer to the system administration documents for information 
+  about how to start daemons during system initialization.
 
 
 - Installing the GUI data manager, tkdm
@@ -198,22 +198,25 @@ notes.
 
 - Installing the Web data manager
 
-  The Web data manager is known to work with the Web servers: Apache 
-  1.3 and 2.0, and the Web browsers: Mozilla 1.0, Netscape 4.75,
-  and Internet Explorer 3.03.
+  The Web data manager works with the Web servers: Apache 1.3 and 
+  2.0, and the Web browsers: Mozilla 1.0, Netscape 4.75, and Internet 
+  Explorer 3.03.
 
-  APACHE CONFIGURATION - The Web data manager was written for Apache
-  with mod_perl, mod_env, and mod_ssi. You'll need to edit httpd.conf 
-  to allow server-side includes if they aren't already configured, and 
-  on some systems, set LD_LIBRARY_PATH in the server's environment so 
-  it can locate all of the libraries that the DBMS server, ODBC, and 
-  Perl require.
+  The document describes a configuration that uses 
+  /usr/local/apache/htdocs as the Apache DocumentRoot directory and 
+  /usr/local/apache/cgi-bin as the CGI script directory.  Make the 
+  necessary adjustments for the system's Apache configuration.
 
-  The data manager is configured to be installed in the "datamanager"
-  subdirectory of "htdocs."  If you decide to install it in a 
-  different subdirectory, modify the directives shown below for
-  httpd.conf accordingly, and change the value of $folder in the CGI 
-  script, datamanager.cgi.  
+  APACHE CONFIGURATION - Httpd.conf must be configured to load mod_perl, 
+  mod_env, and mod_ssi, and use server-side includes. On some systems, 
+  LD_LIBRARY_PATH in the server's environment must be able to locate all 
+  of the libraries that the DBMS server, ODBC, and Perl require.
+
+  The data manager is configured to be installed in the, "datamanager,"
+  subdirectory of, "htdocs,"  or the directory named in the httpd.conf
+  DocumentRoot directive.  If installing in a different subdirectory, 
+  modify the directives shown below for httpd.conf accordingly, and 
+  change the value of $folder in the CGI script, datamanager.cgi.  
 
   If the Apache server does not have server-side includes enabled,
   add the following lines to httpd.conf:
@@ -229,21 +232,14 @@ notes.
 
     SetEnv LD_LIBRARY_PATH /usr/lib:/usr/local/lib:/usr/local/mysql/lib/mysql
 
-  The names of the directories may vary depending on how you installed
-  Apache and what DBMS server you installed.
+  The names of the directories will vary depending on the system's
+  Apache and DBMS server configuration.
 
   Then restart the Apache:
 
   # /usr/local/apache/bin/apachectl restart
 
-
-  DATA MANAGER CONFIGURATION - These instructions use
-  /usr/local/apache/htdocs as the Apache document directory and
-  /usr/local/apache/cgi-bin as the CGI script directory.  Make the
-  necessary adjustments if your Apache directory configuration is
-  different than the one used here.
-
-  Then install the files using these commands.
+  Then install the files with these steps.
 
   $ su
   # mkdir /usr/local/apache/htdocs/datamanager
@@ -254,10 +250,18 @@ notes.
   # cp datamanager/*.cgi /usr/local/apache/cgi-bin
   # cd /usr/local/apache/cgi-bin
   # chmod +x tables.cgi datamanager.cgi odbclogin.cgi
+
+	Edit the path to the perl interpreter on the 
+	first line of tables,cgi, datamanager.cgi, 
+	odbclogin.cgi to the path of the actual perl 
+	interpreter.  The path should be either 
+	/usr/local/bin/perl, /usr/bin/perl, or the output 
+	of the shell command, "which perl."
+
   # cd /usr/local/etc
   # chmod 0600 odbclogins
-  # chown nobody odbclogins     # Use the UID/GID of httpd.conf's
-  # chgrp nobody odbclogins     # "User" and "Group" directives.
+  # chown nobody odbclogins     # Use the UID/GID of httpd.conf's,
+  # chgrp nobody odbclogins     # "User," and, "Group," directives.
 
   Edit each line of the file /usr/local/etc/odbclogins for
   the login of each system that has a bridge server installed.
@@ -273,100 +277,103 @@ notes.
   entries in /etc/passwd.  
 
   IMPORTANT - /usr/local/etc/odbclogins contains login data 
-  for remote systems, so it is important that you change the 
-  permissions and ownership so that it can be read by the 
-  httpd server processes ONLY (i.e., the CGI scripts).  
-  Normally, apache servers run as user nobody, group nobody, 
-  so this is what you want to set the file ownership to.  Also, 
-  do a "chmod 0600 /usr/local/etc/odbclogins" so that only the 
-  Web server's UID can read the file.  If this isn't secure 
-  enough, you can also create a separate UID (www, for example) 
-  and make sure that you change the User directive in httpd.conf.
+  for remote systems.  It is important to change the permissions 
+  and ownership so that it can be read by the httpd server 
+  processes ONLY (i.e., the CGI scripts).  Apache servers often run 
+  as user nobody, group nobody, but the ownership of 
+  /usr/local/etc/odbclogins to the values in the User and Group 
+  http.conf directives.
+
+  Also, do a, "chmod 0600 /usr/local/etc/odbclogins," to remove,
+  "group," and, "other," permissions from the file.  If this isn't 
+  secure enough, you can also create a separate UID (www, for 
+  example) and make sure to change the User directive value in 
+  httpd.conf.
 
   Standard Disclaimer (Again) - The CGI scripts are written to
   find Perl as /usr/local/bin/perl.  If that isn't the
   configuration on the system, then either edit the first line
   of the scripts to reflect the actual location of the perl
-  binary (the output of "which perl") or make a symlink,
-  /usr/local/bin/perl, to the interpreter. 
+  binary (the output of, "which perl") or make /usr/local/bin/perl 
+  symlink to the interpreter.
 
   The ODBC logo is modified from the XPM in the unixODBC-2.2.2 
   Data Manager source tree.  
 
-  If you encounter problems with the CGI scripts, the error
-  messages will be recorded in the Apache error_log, even if
+  CGI script errors are recorded in the Apache error_log, even if
   they don't appear in the browser window.  If the scripts seem
-  to work right, but you can't connect to data sources, look for
-  the bridge error messages in the syslog, and consult the
+  to work right, but the data manager can't connect to data sources, 
+  look for the bridge error messages in the syslog, and consult the
   section, "Troubleshooting," below.
   
 
-- Example scripts
+- Client scripts
 
-  The eg/ directory contains example ODBC clients.  The scripts
-  that log into a data source require the DSN, DBMS login name
-  and DBMS password as command line arguments.  The scripts
-  in the bridge/ subdirectory additionally require the name or
-  IP address of the host system. The command line option 
-  '--help' prints a brief help message, for example:
+  The eg/ directory contains example ODBC clients for
+  locally hosted ODBC servers.  The scripts that log into a
+  data source require the DSN, DBMS login name and DBMS
+  password as command line arguments.  The client scripts in
+  the bridge/ subdirectory, for networked ODBC servers,
+  additionally require the name or IP address of the host
+  system. 
+
+  Documentation for the client scripts are in the man pages.
+  The command line option, "--help," prints a brief help
+  message.
 
     # alltypes --help
 
-    - alltypes       Print a list of the SQL data types for a DSN.
-    - apifuncs       ODBC API functions that a driver implements.
-    - colattributes  Column attributes for a title.
-    - connectinfo    Connection attributes.
-    - datasources    DSN's on the local system.
-    - driverinfo     Drivers on the local system.
+    Clients for local host ODBC queries.
 
-  The bridge/ directory contains example clients for remote DSN's.
+      - alltypes       List the SQL data types for a DSN.
+      - apifuncs       ODBC API functions that a driver implements.
+      - colattributes  Column attributes for a title.
+      - connectinfo    Connection attributes.
+      - datasources    DSN's on the local system.
+      - driverinfo     Drivers on the local system.
 
-  sampleclient and sampleclient2 - Sample script for testing ODBC 
-  function calls using the peer-to-peer bridge.
+    Clients for remote DSN queries are in the, "bridge,"
+    subdirectory. 
 
-  remotedsn - List the DSN's of a remote system.  Refer to the
-  man page ("man remotedsn") for a description of its command
-  line parameters or type "remotedsn --help".
+      sampleclient and sampleclient2 - Testing ODBC function
+      calls using the peer to peer bridge.
 
-  remotetables - List the tables of a remote DSN.  Refer to
-  the man page ("man remotetables") or type "remotetables 
-  --help" for a description of the command line arguments.
+      - remotedsn      List the DSN's of a remote system.  
+      - remotetables   List the tables of a remote DSN.
 
 - Troubleshooting
 
-  - If you try to execute a Perl script and receive an error message 
-    like:
+  - Perl error messages similar to,
 
       <programname>: not found
 
-    then the script cannot locate the Perl interpreter.  Most of 
-    the scripts in this package (including CGI scripts) assume that 
-    the Perl interpreter is /usr/local/bin/perl.  If it isn't, you 
-    can make a symlink from the actual Perl interpreter, or change 
-    the first line in each script to the path of the perl binary.  
+    indicate that the script cannot locate the Perl
+    interpreter.  Most of the scripts in UnixODBC.om (including
+    CGI scripts) assume that the Perl binary is
+    /usr/local/bin/perl.  If it isn't, you can make a symlink
+    from the actual Perl interpreter, or edit the first line in
+    the scripts to the path of the Perl binary.
 
   - If a program seems to take forever to start, it generally
     indicates that the Bridge server can't make a connection
-    to another machine on a network.  This usually is a problem
-    with the network connection; for example, the remote system is
-    not turned on.
+    to another machine on a network, and usually indicates that
+    a network system is not accessible.
 
-  - "Failed to make first connection..." to a DSN generally
+  - "Failed to make first connection...," to a DSN generally
     means that either the remote bridge server is not running,
-    you were not able to log in, or the perl and library versions
-    of the systems are different.  Check the installation
-    and configuration of the bridge server (above and "man 
+    the client was not able to log in, or the perl and library 
+    versions of the systems are different.  Check the installation
+    and configuration of the bridge server (above and, "man 
     odbcbrigde"), and make sure that you can make a connection to 
     the remote DSN with a text-mode client like remotedsn ("man
     remotedsn") or remotetables ("man remotetables").
 
     If the data manager can connect to local data sources but not
     remote data sources, the problem is likely in the RPC network
-    layer.  Make sure that the versions of Perl, Net::Daemon,
-    Storable, and RPC::PlServer are the same on the local and
-    remote system.  Try connecting with one of the text mode
-    clients (remotedsn, remotetables, sampleclient) to help find
-    the problem.
+    layer.  Ensure that the versions of Perl, Net::Daemon,
+    Storable, and RPC::PlServer are the same on local and
+    remote systems.  Try connecting with one of the text mode
+    clients (remotedsn, remotetables) to help diagnose the problem.
 
     The servers at all levels (DBMS server, HTTP server, bridge
     server) perform caching on the local and remote machines.  It
@@ -376,51 +383,50 @@ notes.
     background, remember to re-start it if you change the system
     configuration.
 
-  - If you receive "Unexpected EOF while waiting for server reply" 
-    errors while logging into a DSN, try restarting the bridge 
-    server from a terminal session.
+  - If you receive, "Unexpected EOF while waiting for server
+    reply," errors while logging into a DSN, try restarting the
+    bridge server from a terminal session.
 
-  - "Out of memory during large request" and "Maximum message size
-    exceeded" errors occur when the size of a result set is greater
-    than 64 kb.  This is because the bridge server uses integers
-    as packet indexes.  Try to narrow the SQL query to produce a
-    smaller result set.
+  - "Out of memory during large request," and "Maximum
+    message size exceeded," errors occur when the size of a
+    result set is greater than 64 kb.  This is because the
+    bridge server uses integers as packet indexes.  Try to
+    narrow the SQL query to produce a smaller result set.
 
-  - Error and/or status messages do not show up in the system logs.  
-    There are up to three (that's right, three) different system logs 
-    that can record activity by the UnixODBC bridge server, the ODBC
-    Driver Manager, and the HTTP server if you installed the Web-based 
-    data manager.   
+  - Error and/or status messages do not show up in the
+    system logs.  The clients, especially the Web data manager,
+    can record activity by the UnixODBC bridge server, the ODBC
+    Driver Manager, and the HTTP server in up to three (that's
+    right, three) different system logs.
 
-    1. UnixODBC bridge servers and clients use the syslog "daemon" 
-    facility to record activity.  If daemon logging is not enabled 
-    (i.e., there is no "daemon.log" file), typically add a line 
-    like this to /etc/syslogd.conf, for example (on Linux systems):
+    1. UnixODBC bridge servers and clients use the syslog,
+    "daemon," facility to record activity.  If daemon logging is
+    not enabled (i.e., there is no, "daemon.log," file), typically
+    add a line like this to /etc/syslogd.conf, for example (on
+    Linux systems):
 
 
       daemon.*                              /var/log/daemon.log
 
     Refer to the man pages for syslogd, syslogd.conf, and/or
-    syslog.conf depending on your Unix version.  You can set the 
-    'debug' option in odbcbridge.conf, which you should have copied 
-    to /usr/local/etc,  to non-zero so that the ODBC server 
+    syslog.conf depending on the Unix version.  If the 'debug' option 
+    in /usr/local/etc/odbcbridge.conf is non-zero the ODBC server 
     generates additional status and error messages.  Remember to 
-    restart the syslog daemon after making changes to its 
-    configuration.
+    restart the syslog daemon after making configuration changes.
 
-    2. You can also use the functions dm_log_open(<logfilename>) and
-    dm_log_close() in UnixODBC.pm and UnixODBC::BridgeServer.pm to 
-    begin and end the logging of the ODBC run-time library.
+    2. The functions dm_log_open(<logfilename>) and dm_log_close() 
+    in UnixODBC.pm and UnixODBC::BridgeServer.pm begin and end the 
+    logging of the ODBC run-time library.
 
-    3. HTTP and CGI script errors are recorded in the HTTP server's 
+    3. The HTTP server records HTTP and CGI script errors server's 
     error log.
     
 - Authorship and Copyright
 
-UnixODBC.pm is written by Robert Allan Kiesling, rkies@cpan.org.
+  UnixODBC.pm is written by Robert Kiesling, rkies@cpan.org.
 
-Copyright 2002-2004 by Robert Allan Kiesling and licensed using
-the same terms as Perl.  Refer to the file "Artistic" for the 
-details.
+  Copyright © 2002-2004 by Robert Kiesling and licensed using
+  the same terms as Perl.  Refer to the file, "Artistic," for the 
+  details.
 
-$Id: README,v 1.9 2004/01/25 02:35:42 kiesling Exp $
+  $Id: README,v 1.12 2004/02/08 02:02:54 kiesling Exp $

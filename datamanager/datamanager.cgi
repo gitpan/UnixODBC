@@ -1,5 +1,7 @@
 #!/usr/local/bin/perl
 
+# $Id: datamanager.cgi,v 1.3 2004/02/07 16:52:18 kiesling Exp $
+
 use UnixODBC (':all');
 use UnixODBC::BridgeServer;
 use RPC::PlClient;
@@ -294,7 +296,11 @@ sub gettablenames {
 }
 
 sub readlogins {
-    open LOGIN, $loginfile or die "Cannot open $loginfile: $!";
+    eval { open LOGIN, $loginfile or 
+	do {perl_errorpage ("$! while reading $loginfile.");
+	     print STDERR "Error reading $loginfile: $!\n";
+	     exit 0 };
+       };
     my ($line, $host, $userpwd);
     while (defined ($line = <LOGIN>)) {
 	next if $line =~ /^\#/;
@@ -344,4 +350,13 @@ sub odbc_diag_message {
     ($rerror, $sqlstate, $native, $etext, $elength) = 
 	$c -> sql_get_diag_rec ($handletype, $handle, 1, 255);
     return "[$func][$unixodbcfunc]$etext";
+}
+
+sub perl_errorpage {
+    my $errortext = $_[0];
+    print qq{Content-Type: text/html\n\n<html>
+		 <font size=4><b>Error:</b></font>
+		 <p>
+		 $errortext
+	     };
 }

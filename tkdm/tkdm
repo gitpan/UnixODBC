@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 
-#$Id: tkdm,v 1.15 2004/01/25 02:35:21 kiesling Exp $
+#$Id: tkdm,v 1.18 2004/02/05 00:40:54 kiesling Exp $
 
-$VERSION='0.15';
+$VERSION='0.19';
 @EXPORT_OK=(qw/$VERSION/);
 
 use Tk;
@@ -440,12 +440,6 @@ $tablepane -> place (-relx => 0.40, -y => 0.10, -relwidth => 0.60,
 # Direct access to canvas for misc methods not in Canvas class...
 $tablecanvas = $tablepane -> Subwidget ('canvas');
 
-#my $tablepane = $mw -> Scrolled ('Canvas', -background => $background,
-#				 -scrollbars => 'se',
-#				 -confine => 1);
-#$tablepane -> Subwidget ($_) -> configure (-width => 10) 
-#    foreach (qw/xscrollbar yscrollbar/);
-# This is re-configured when pane is filled in.
 $tablepane -> configure (-scrollregion =>
 		       [0, 0, $tablepane -> width, $tablepane -> height]);
 
@@ -1184,7 +1178,6 @@ sub display_result_set {
      $resultslist -> put (1, $cidx++, $_) 
 	 foreach (@{$labelptr -> {result_column_heads}});
 
-
      $ridx = 2;
      foreach $rref (@{$resultarrayref}) {
           for ($cidx = 0; $cidx <= $#{$rref}; $cidx++) {
@@ -1444,9 +1437,11 @@ sub query_db {
 	print "query_db result: rows $nrows, cols $ncols\n" if $debug;
 
 	if ($labelptr -> {result_rows}) {
+	    # Avoid uninitialized value warning message
 	    my $rfetch = $SQL_SUCCESS;
-	    while ($rfetch == $SQL_SUCCESS) {
+	    while (1) {
 		$rfetch = $c -> sql_fetch ($sth);
+		last unless $rfetch == $SQL_SUCCESS;
 		$colarrayref = new_array_ref();
 		for ( my $col = 1; $col <= $ncols; $col++) {
 		    ($r, $result_text, $length_result) = 
@@ -1782,46 +1777,122 @@ MainLoop;
 =head1 DESCRIPTION
 
 Tkdm is a multi-host ODBC data manager that uses Perl/Tk as its user
-interface and the UnixODBC BridgeServer.pm module for network
-communication.  Refer to the UnixODBC::BridgeServer man page and the
-README file of the UnixODBC package for details of how to configure
-multi-host communication with UnixODBC.pm.
+interface and UnixODBC.pm for peer to peer communications.  Refer to
+the UnixODBC.pm man page, the UnixODBC::BridgeServer.pm man page, and
+the README file in the UnixODBC source code archive for a description
+of UnixODBC.pm client and server configuration.
 
-A summary of some of the commands is described below.
+The section, "CONFIGURATION," describes how to configure tkdm
+with login and server information.
 
-=head2 F1
+
+=head1 USAGE
+
+The Tkdm main window has two panes.  The left-hand pane displays
+information about hosts, names of data sources (DSNs), and, when
+connected to a data source, the database tables.
+
+The right-hand pane provides forms and buttons to perform queries and
+display query results of the DSN and table selected in the left-hand
+pane.
+
+=head2 DSN Pane
+
+The left-hand pane displays network hosts and data sources that are
+available via UnixODBC.pm peer servers on each host system on a
+network, as described in the section, "CONFIGURATION."
+
+
+If tkdm cannot connect to a host, it displays that host's icon
+X-ed out.
+
+Clicking on a DSN label with the left mouse button pops up a dialog
+for the DSN's login user name and password.  After logging in,
+clicking on a table name draws a query form in the right-hand pane, as
+described in the next section.
+
+=head2 Table Query Pane
+
+The right hand pane has buttons for the following functions.
+
+- Execute a SELECT query, modified using the field selectors and
+predicate inputs in the checkboxes and text entry boxes below.
+
+- Execute an INSERT query, using the data entered in the text entry
+boxes.
+
+- Open a dialog box where the user can enter the text of a SQL query.
+
+The pane displays the result set's number of rows and columns, and, if
+the query returns data in the result set, the data in tabular form in
+the window.
+
+=head2 Displaying Results
+
+Data that consists of more than one line of text is displayed in a
+scrollable window.  The text window is resizable by dragging the lower
+right corner of the window.  You can cut and paste highlighted text
+into other applications with the X Window clipboard, or with the text
+menu options described in, "Text Menu Options."
+
+=head1 MENU COMMANDS
+
+Clicking the right mouse button opens the program's main menu, or a
+text editing menu when the mouse pointer is over the results set.
+
+=head1 Main Menu Options
+
+=head2 Help... 
 
 Open a help window with this document.
 
-=head2 F10 
+=head2 About...
+
+Show version information in a dialog box.
+
+=head2 Exit 
 
 Exit tkdm.
 
-=head2 Mouse-3 (Right Mouse Button)
+=head1 Text Menu Options
 
-If you click the right mouse button when the pointer is over a results
-set field, tkdm opens a menu of options for that text.  Otherwise,
-clicking the right mouse button opens the program's main menu.
+Clicking the right mouse button over a result set window pops up a
+menu which has the following options.
 
-=head1 OPTIONS
+=head2 File
 
-Tkdm recognizes the following options when typed at the shell prompt.
+Options for multi-line text are, Open, Save, Save As, Include, Clear,
+and Exit.
+
+=head2 Edit 
+
+Options are Undo, Redo, Copy, Cut, Paste, Select All, and Unselect All.
+
+=head2 Search 
+
+Options are Find, Find Next, Find Previous, and Replace.
+
+=head2 View
+
+Options are Goto Line, Which Line, and Wrap mode.
+
+=head1 COMMAND-LINE OPTIONS
 
 =head2 --background <color>
 
-Set the window background color.
+The window background color.
 
 =head2 --debug
 
-Print debugging messages on the terminal.
+Print debugging information on the terminal.
 
 =head2 --displayfont <font>
 
-Set the font used to display widget text.
+The font used to display widget text.
 
 =head2 --help
 
-Display the command line options on the terminal and exit.
+Print the command line options and exit.
 
 =head2 --height <pixels>
 
@@ -1829,84 +1900,28 @@ Window height.
 
 =head2 --monofont <font>
 
-Set the monospaced font used to display columnar data.
+Monospaced font used to display columnar data.
 
 =head2 --relief <style>
 
-Set the widget relief style.  The "style" paramater may be one of:
+Widget relief style.  The "style" paramater may be one of:
 "raised," "sunken," "flat," "ridge," "solid," "groove," or "none."
 
 =head2 --selectedfont <font>
 
-Set the font used to highlight selected widgets.
+Font used to highlight selected widgets.
 
 =head2 --width <pixels>
 
 Window width.
-
-=head1 Usage
-
-The Datamanager contains two windows.  The left-hand window displays
-information about hosts, data sources, and, when logged in, tables
-in each data source.  
-
-The right-hand window provides forms and buttons to perform queries and 
-display results on the data source and table selected in the left-hand
-window.
-
-Clicking the right mouse button over most of the widgets displays a
-short menu with an About... dialog option and also an option to exit
-the data manager.
-
-=head2 DSN Window
-
-The left-hand window of tkdm displays the network hosts and data
-sources that are available via UnixODBC.pm peer servers on each host
-system on a network, and which are listed in the user's
-$HOME/.odbclogins file (see below).
-
-If tkdm cannot connect to a host, it will display that host's icon
-X-ed out.
-
-Clicking on a data source label with the left mouse button causes tkdm
-to request the login user name and password for that data source.
-Once login is successful, you can click on one of the tables in the
-data source's database, and tkdm then draws a query form for that
-table in the right-hand window, as described in the next section.
-
-=head2 Table Query Window
-
-The right hand window presents the controls for selecting and
-inserting data, and entering and running other SQL queries.
-
-The three buttons in the upper left-hand corner of the window,
-described here from left to right, perform the following functions:
-
-- Execute a SELECT query, modified using the field selectors and
-predicate inputs in the checkboxes and text entry boxes.
-
-- Execute an INSERT query, using the data entered in the text entry
-boxes.
-
-- Open a dialog box where the user can enter the text of a SQL query.
-
-Once the query is submitted, tkdm will display the number of rows and
-columns in the result set, and, if the query returns data in the 
-result set, tkdm will display the data in tabular form in the window.  
-
-Data that consists of more than one line of text is displayed in a
-scrollable window.  You can resize the text box by dragging the corner
-widget at the lower right of the window.  You can cut and paste
-highlighted text into other applications using the X Window clipboard.
 
 =head1 CONFIGURATION
 
 The file $HOME/.odbclogins contains the information for logging into
 each host system on a network that has a  UnixODBC server.
 
-Each line in the .odbclogins file provides the login information 
-for one host, including the local system.  The format of each
-line is:
+Each line provides login information for one host, including the local
+system.  The format of each line is:
 
   <hostname>::<username>::<password>
 
@@ -1925,25 +1940,24 @@ The format of the .odbclogins file is similar to the odbclogins file
 used by the CGI data manager.  There is a sample odbclogins file in
 the datamanager directory of the UnixODBC package.
 
-CAUTION - The .odbclogins file can present a signifiant security risk
-if other users can read your login data.  To prevent this, remove the
-group and other read permissions for the file, by using the command:
+WARNING - To prevent other users from reading the login data, remove
+the, "group," and, "other," permissions from the file, with:
 
   # chmod 0600 ~/.odbclogins
 
 =head1 VERSION INFORMATION AND CREDITS
 
-Version 0.13
+$Id$
 
 Tkdm is part of the UnixODBC.pm package.  
 
-Written by: Robert Allan Kiesling, rkies@cpan.org.
+Written by: Robert Kiesling, rkies@cpan.org.
 
 Licensed under the same terms as Perl.  Please refer to the
-file "Artistic" for details.
+file, "Artistic," for details.
 
 =head1 SEE ALSO
 
-perl(1), UnixODBC(3), UnixODBC::BridgeServer(3).
+perl(1), Tk(1), UnixODBC(3), UnixODBC::BridgeServer(3).
 
 =cut
