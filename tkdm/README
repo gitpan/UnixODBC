@@ -7,11 +7,12 @@ Tkdm Installation
 2. Make sure that Perl/Tk is installed correctly.
 
 3. Create the $HOME/.odbclogins file, following the pattern of
-    the Web datamanager's odbclogins file in the datamanager
-    subdirectory.  (This will all have to be changed to MD5 or 
-    some other form of authentican, soon.  Make sure that the 
-    permissions of .odbclogins is set correctly (i.e., so that 
-    it isn't world readable). 
+   the Web datamanager's odbclogins file in the datamanager
+   subdirectory.  (This will all have to be changed to MD5 or 
+   some other form of authentican, soon.  Make sure that the 
+   permissions of .odbclogins is set correctly (i.e., so that 
+   it isn't world readable).   The sample .odbclogins file, 
+   named dot-odbclogins, provides some example entries.
 
 4. Make sure that the path to the perl intererpeter on the first 
    line of the tkdm script is correct.  The path to the perl 

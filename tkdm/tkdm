@@ -1,6 +1,6 @@
 #!/usr/local/bin/perl -w
 
-$VERSION=0.10;
+$VERSION=0.11;
 @EXPORT_OK=(qw/$VERSION/);
 
 use Tk;
@@ -30,7 +30,7 @@ my $dsnloginpassword = '';
 # Text of SQL query entered by user.
 my $userquerytext = 'Enter your SQL query here.';
 
-my @hostlabels; # Refs of dsnlabel hashes.
+my @hostlabels;    # Refs of dsnlabel hashes.
 my %tablepanetags; # Canvas Ids and subwidget tags of table pane 
                    # hashes.
 
@@ -42,15 +42,15 @@ my $table_indent = 15;
 my $helptext =<<EOHELP;
 Usage: tkdm [options]
 Options:
---bgcolor color      Set the background color to "color".
---debug              Print debugging messages.
---displayfont font   Font used in labels.
---help               Print this message and exit.
---monofont font      Monospaced font for columnar results.
---relief style       Change the widget relief highlights to
-                     "style": "raised," "sunken," "flat," "ridge," 
-                     "solid," "groove," or "none."
---selectedfont font  Font for selected labels.
+--background <color>   Set the window background color.
+--debug                Print debugging messages.
+--displayfont <font>   Font used in labels.
+--help                 Print this message and exit.
+--monofont <font>      Monospaced font for columnar results.
+--relief <style>       Change the widget relief highlights to
+                       "style": "raised," "sunken," "flat," "ridge," 
+                       "solid," "groove," or "none."
+--selectedfont <font>  Font for selected labels.
 
 Refer to the man page ("man tkdm") for information.
 EOHELP
@@ -58,13 +58,13 @@ EOHELP
 #
 # Command Line Options
 #
-my $debug = 0;         # Print debuggin messages.
-my $bgcolor = 'white';  # Background color for widgets.
-my $relief = 'groove'; # How to draw the widget reliefs, 
-                       # except for entry widgets.
-my $borderwidth = 1;   # Width of widget borders.
-my $help = 0;          # Print help and exit.
-my $balloonwait = 1000; # 1 second
+my $debug = 0;             # Print debuggin messages.
+my $background = 'white';  # Background color for widgets.
+my $relief = 'groove';     # How to draw the widget reliefs, 
+                           # except for entry widgets.
+my $borderwidth = 1;       # Width of widget borders.
+my $help = 0;              # Print help and exit.
+my $balloonwait = 1000;    # 1 second
 my $dsnnormalfont = '-*-helvetica-medium-r-*-*-12-120-*-*-*-*-*-*';
 my $dsnselectedfont = '-*-helvetica-bold-r-*-*-12-120-*-*-*-*-*-*';
 # This should be monospaced so columns line up.
@@ -73,7 +73,7 @@ my $resultsfont = '-*-courier-medium-r-*-*-12-120-*-*-*-*-*-*';
 my $optresult = GetOptions ( "borderwidth=i" => \$borderwidth,
 			     "debug" => \$debug,
                              "displayfont=s" => \$dsnnormalfont,
-			     "bgcolor=s" => \$bgcolor,
+			     "background=s" => \$background,
 			     "relief=s" => \$relief,
 			     "monofont=s" => \$resultsfont,
 			     "selectedfont=s" => \$dsnselectedfont,
@@ -307,71 +307,29 @@ my $dsnxpm = <<EODSNXPM;
 /* XPM */
 static char *magick[] = {
 /* columns rows colors chars-per-pixel */
-"17 19 44 1",
+"17 19 2 1",
 "  c Black",
-". c #010101",
-"X c #020202",
-"o c Gray1",
-"O c #040404",
-"+ c Gray2",
-"@ c #070707",
-"# c Gray3",
-"$ c #090909",
-"% c Gray4",
-"& c #0b0b0b",
-"* c #0c0c0c",
-"= c Gray5",
-"- c #0e0e0e",
-"; c #111111",
-": c Gray7",
-"> c #131313",
-", c Gray8",
-"< c #151515",
-"1 c Gray9",
-"2 c Gray10",
-"3 c #1b1b1b",
-"4 c Gray16",
-"5 c #2f2f2f",
-"6 c #e6e6e6",
-"7 c #eaeaea",
-"8 c Gray93",
-"9 c #eeeeee",
-"q c Gray94",
-"w c #f1f1f1",
-"e c Gray95",
-"r c #f3f3f3",
-"t c #f4f4f4",
-"y c Gray96",
-"u c #f6f6f6",
-"i c Gray97",
-"p c #f8f8f8",
-"a c #f9f9f9",
-"s c Gray98",
-"d c #fbfbfb",
-"f c Gray99",
-"g c #fdfdfd",
-"h c #fefefe",
-"j c None",
+". c None",
 /* pixels */
-"jjjjjjjjjjjjjjjjj",
-"jj-;   , -% jdjjj",
-"jj3yjjjjjjj;jejjj",
-"jj jjjjjjjj j%ydj",
-"jj jjjjjjjj j3djj",
-"jj jjjjjjjj j j j",
-"jj jjjjjjjj,e%j j",
-"jj jjjjjjjj j j j",
-"jj jjjjjjjj j j j",
-"jj jjjyjjjj j j j",
-"jj jjjjjjjj-j j j",
-"jj jjjjjjjj j-j j",
-"jj;jjjjjjjj%j%j j",
-"jj  %   ;,  d j j",
-"jjjjjdjdyjdjjjy j",
-"jdjj    % -j  j j",
-"yjddjj7jjdjjejy,j",
-"j7jjj75 ;  -  4 j",
-"jjjjjjjjjjjjjjjjj"
+".................",
+"..          .....",
+".. ........ .....",
+".. ........ . ...",
+".. ........ . ...",
+".. ........ . . .",
+".. ........ . . .",
+".. ........ . . .",
+".. ........ . . .",
+".. ........ . . .",
+".. ........ . . .",
+".. ........ . . .",
+".. ........ . . .",
+"..          . . .",
+"............. . .",
+"....          . .",
+"............... .",
+".......         .",
+"................."
 };
 EODSNXPM
 use warnings;
@@ -402,11 +360,11 @@ my $selectpixmap = $mw -> Pixmap ('select', -data => $selectxpm);
 $selectxpmwidth = $selectpixmap -> width;
 $selectxpmheight = $selectpixmap -> height;
 
-my $dsnpane = $mw -> Scrolled ('Canvas', -background => $bgcolor,
+my $dsnpane = $mw -> Scrolled ('Canvas', -background => $background,
 			       -scrollbars => 'se');
-$dsnpane -> Subwidget ('xscrollbar') -> configure (-width => 10);
-$dsnpane -> Subwidget ('yscrollbar') -> configure (-width => 10);
-# Direct access to canvas for misc methods not in Canvas class...
+$dsnpane -> Subwidget ($_) -> configure (-width => 10) 
+    foreach (qw/xscrollbar yscrollbar/);
+# Direct access to canvas when ignoring the scrollbars...
 $kanvaswidget = $dsnpane -> Subwidget ('canvas');
 
 # Font objects for widget size measurement
@@ -428,10 +386,10 @@ my $boldfontmetric = $dsnpane -> Font (-family => $family,
 				-overstrike => 0);
 
 my $dsnlastselected = undef ; # Item ID of last selected item on DSN pane
-my $tablepane = $mw -> Scrolled ('Canvas', -background => $bgcolor,
+my $tablepane = $mw -> Scrolled ('Canvas', -background => $background,
 				 -scrollbars => 'se');
-$tablepane -> Subwidget ('xscrollbar') -> configure (-width => 10);
-$tablepane -> Subwidget ('yscrollbar') -> configure (-width => 10);
+$tablepane -> Subwidget ($_) -> configure (-width => 10) 
+    foreach (qw/xscrollbar yscrollbar/);
 # Direct access to canvas for misc methods not in Canvas class...
 my $tablewidget = $tablepane -> Subwidget ('canvas');
 my $topmenu = $mw -> Menu (-type => 'normal', -tearoff => '',
@@ -446,7 +404,7 @@ $tablepane -> place (-relx => 0.40, -y => 0, -relwidth => 0.6,
 $mw -> bind ('<ButtonPress-3>',
 	[\&postpopupmenu, $topmenu, Ev('X'), Ev('Y')]);
 
-# These are the major callbacks for each pane.
+# All $dsnpane functions use this callback.
 $mw -> Tk::bind ($kanvaswidget, '<ButtonPress-1>', 
 		  [\&dsnclick, $dsnpane, Ev('x'), Ev('y')]);
 
@@ -465,9 +423,8 @@ sub dsnclick {
     my $y = shift;
 
     my (@column_names);
-    my $x_canv = $kanvaswidget -> canvasx ($x);
-    my $y_canv = $kanvaswidget -> canvasy ($y);
-    $x = $x_canv; $y = $y_canv;
+    $x = $kanvaswidget -> canvasx ($x);
+    $y = $kanvaswidget -> canvasy ($y);
 
     foreach my $label (@hostlabels) {
 	if ((($x >= $label -> {x_org}) && ($y >= $label -> {y_org}))
@@ -596,8 +553,7 @@ sub getdsnlogin {
 sub tablelogin {
     my ($dw, $peer, $dsn, $username, $password) = @_;
     my ($peerusername, $peerpassword) = split /::/, $peers{$peer};
-    my ($evh, $cnh, $sth);
-    my ($r, $sqlstate, $native, $text, $textlen);
+    my ($evh, $cnh, $sth, $r, $text, $textlen);
     my (@tables, $tableobj, @tmpdsns);
     my $c = peer_client_login ($peer, $peerusername, $peerpassword);
     if ($c =~ m"$CLIENT_LOGIN_ERROR") {
@@ -610,17 +566,15 @@ sub tablelogin {
 	$r = $c -> 
 	    sql_set_env_attr ($evh, $SQL_ATTR_ODBC_VERSION, $SQL_OV_ODBC2, 0);
     } else {
-	($r, $sqlstate, $native, $text, $textlen) = 
-	    $c -> sql_get_diag_rec ($SQL_HANDLE_ENV, $evh, 1, 255);
-	error_dialog ($dw, $text);
+	odbc_diag_message ($c, $SQL_HANDLE_ENV, $evh, 'tablelogin',
+			    'sql_alloc_handle (evh)');
 	return 1;
     }
 
     $cnh = $c -> sql_alloc_handle ($SQL_HANDLE_DBC, $evh);
     if (! defined $cnh) {
-	($r, $sqlstate, $native, $text, $textlen) = 
-	    $c -> sql_get_diag_rec ($SQL_HANDLE_ENV, $evh, 1, 255);
-	error_dialog ($dw, $text);
+	odbc_diag_message ($c, $SQL_HANDLE_ENV, $evh, 'tablelogin',
+			    'sql_alloc_handle (cnh)');
 	return 1;
     }
 
@@ -628,25 +582,22 @@ sub tablelogin {
 			$username, length($username), 
 			$password, length($password));
     if ($r != $SQL_SUCCESS) {
-	($r, $sqlstate, $native, $text, $textlen) = 
-	    $c -> sql_get_diag_rec ($SQL_HANDLE_DBC, $cnh, 1, 255);
-	error_dialog ($dw, $text);
+	odbc_diag_message ($c, $SQL_HANDLE_DBC, $cnh, 
+			   'tablelogin', 'sql_connect');
 	return 1;
     }
 
     $sth = $c -> sql_alloc_handle ($SQL_HANDLE_STMT, $cnh);
     if (! defined $sth) {
-	($r, $sqlstate, $native, $text, $textlen) = 
-	    $c -> sql_get_diag_rec ($SQL_HANDLE_DBC, $cnh, 1, 255);
-	error_dialog ($dw, $text);
+	odbc_diag_message ($c, $SQL_HANDLE_DBC, $cnh,
+			   'tablelogin', 'sql_alloc_handle (sth)');
 	return 1;
     }
 
     $r = $c -> sql_tables ($sth, '', 0, '', 0, '', 0, '', 0);
     if ($r != $SQL_SUCCESS) {
-	($r, $sqlstate, $native, $text, $textlen) = 
-	    $c -> sql_get_diag_rec ($SQL_HANDLE_STMT, $sth, 1, 255);
-	error_dialog ($dw, $text);
+	odbc_diag_message ($c, $SQL_HANDLE_STMT, $sth, 
+			   'tablelogin', 'sql_tables');
 	return 1;
     }
 
@@ -656,9 +607,8 @@ sub tablelogin {
 	($r, $text, $textlen) = 
 	    $c -> sql_get_data ($sth, 3, $SQL_C_CHAR, 255);
 	if ($r != $SQL_SUCCESS) {
-	    ($r, $sqlstate, $native, $text, $textlen) = 
-		$c -> sql_get_diag_rec ($SQL_HANDLE_STMT, $sth, 1, 255);
-	    error_dialog ($dw, $text);
+	    odbc_diag_message ($c, $SQL_HANDLE_STMT, $sth, 
+			       'tablelogin', 'sql_get_data');
 	    return 1;
 	} 
 	$tableobj = new_dsnlabel();
@@ -672,9 +622,8 @@ sub tablelogin {
 
     $r = $c -> sql_free_handle ($SQL_HANDLE_STMT, $sth);
     if ($r != $SQL_SUCCESS) {
-	($r, $sqlstate, $native, $text, $textlen) = 
-	    $c -> sql_get_diag_rec ($SQL_HANDLE_STMT, $sth, 1, 255);
-	error_dialog ($dw, $text);
+	odbc_diag_message ($c, $SQL_HANDLE_STMT, $sth,
+			   'tablelogin', 'sql_free_handle');
 	return 1;
     }
 
@@ -682,25 +631,22 @@ sub tablelogin {
                  # handles no longer exist.
     $r = $c -> sql_disconnect ($cnh);
     if ($r != $SQL_SUCESS) {
-	($r, $sqlstate, $native, $text, $textlen) = 
-	    $c -> sql_get_diag_rec ($SQL_HANDLE_DBC, $cnh, 1, 255);
-	error_dialog ($dw, $text);
+	odbc_diag_message ($c, $SQL_HANDLE_DBC, $cnh,
+			   'tablelogin', 'sql_disconnect');
 	return 1;
     }
 
     $r = $c -> sql_free_connect ($cnh);
     if ($r != $SQL_SUCESS) {
-	($r, $sqlstate, $native, $text, $textlen) = 
-	    $c -> sql_get_diag_rec ($SQL_HANDLE_DBC, $cnh, 1, 255);
-	error_dialog ($dw, $text);
+	odbc_diag_message ($c, $SQL_HANDLE_DBC, $cnh,
+			   'tablelogin', 'sql_free_connect');
 	return 1;
     }
 
     $r = $c -> sql_free_handle ($SQL_HANDLE_ENV, $evh);
     if ($r != $SQL_SUCESS) {
-	($r, $sqlstate, $native, $text, $textlen) = 
-	    $c -> sql_get_diag_rec ($SQL_HANDLE_ENV, $evh, 1, 255);
-	error_dialog ($dw, $text);
+	odbc_diag_message ($c, $SQL_HANDLE_ENV, $evh, 
+			   'tablelogin', 'sql_free_handle (evh)');
 	return 1;
     }
     use warnings;
@@ -782,11 +728,11 @@ sub tablepanecontrolbuttons {
     my $frame = $tablewidget -> Frame (-borderwidth => $borderwidth, 
 			      -relief => $relief,
 			      -height => 26,
-			      -background => $bgcolor) -> pack;
+			      -background => $background) -> pack;
     my $selectbutton = $frame -> Button (-image => $selectpixmap,
 					 -relief => $relief,
 					 -borderwidth => $borderwidth,
-					 -background => $bgcolor,
+					 -background => $background,
 		       -command => sub{execute_select_query($labelptr)})
 	-> pack (-side => 'left');
     my $b1 = $mw -> Balloon (-initwait => $balloonwait);
@@ -795,7 +741,7 @@ sub tablepanecontrolbuttons {
     my $execbutton = $frame -> Button (-image => $enterpixmap,
 			       -relief => $relief,
 			       -borderwidth => $borderwidth,
-			       -background => $bgcolor,
+			       -background => $background,
 		       -command => sub{execute_insert_query($labelptr)})
 	-> pack (-side => 'left');
     my $b2 = $mw -> Balloon (-initwait => $balloonwait);
@@ -803,7 +749,7 @@ sub tablepanecontrolbuttons {
     my $textbutton = $frame -> Button (-image => $textbuttonpixmap,
 				       -relief => $relief,
 				       -borderwidth => $borderwidth,
-				       -background => $bgcolor,
+				       -background => $background,
 		       -command => sub{execute_text_query ($labelptr)})
 	-> pack (-side => 'left');
     my $b3 = $mw -> Balloon (-initwait => $balloonwait);
@@ -818,7 +764,7 @@ sub columnselectframe {
     my ($b, $e, $labelwidth, $maxwidth);
     my $mframe = $tablepane -> Frame (-borderwidth => $borderwidth,
 			       -relief => $relief,
-			       -background => $bgcolor) -> pack;
+			       -background => $background) -> pack;
     
     # Find the longest column label width.
     $labelwidth = 0;
@@ -831,7 +777,7 @@ sub columnselectframe {
     foreach my $c (@columns) {
 	$sframe = $mframe -> Frame( -borderwidth => 0,
 				   -relief => $relief,
-				   -background => $bgcolor)
+				   -background => $background)
 	    -> pack (-side => 'left');
 	$b = $sframe -> 
 	    Checkbutton ( -text => $c,
@@ -839,14 +785,14 @@ sub columnselectframe {
 			 -relief => $relief,
 			 -width => $maxwidth,
 			 -borderwidth => 2,
-			 -background => $bgcolor) ->
+			 -background => $background) ->
 			 pack (-side => 'top', -padx => 5, -pady => 5);
 	$tablepane -> Advertise ("cb_$c" => $b);
 	$e = $sframe ->
 	    Entry (-width => $maxwidth,
 		   -font => $dsnnormalfont,
 		   -relief => 'sunken',
-		   -background => $bgcolor) 
+		   -background => $background) 
 		-> pack (-expand => 1, -fill => 'x', 
 			 -padx => 5, -pady => 5);
 	$tablepane -> Advertise ("en_$c" => $e);
@@ -1080,7 +1026,7 @@ sub display_result_set {
 
     my $setsizelabel = $tablewidget -> Label (-text => $setsizetext,
 					      -font => $dsnnormalfont,
-					      -background => $bgcolor);
+					      -background => $background);
     $tablepane -> Advertise ('setsizelabel' => $setsizelabel);
     $tablepanetags{'setsizelabel'} = 
     $tablepane -> createWindow ( 10, $y_org, -window => $setsizelabel,
@@ -1112,7 +1058,7 @@ sub display_result_set {
     }
 
     $resultslist = $tablewidget -> Listbox ( -height => $nrows + 1,
-						-background => $bgcolor,
+						-background => $background,
 						-font => $resultsfont,
 						-relief => $relief );
     # Insert the column headings first.
@@ -1156,8 +1102,8 @@ sub trimstr {
 
 sub build_select_query {
     my ($labelptr, $col_selectors, $predicates) = @_;
-    my ($localparam, $querystring, @selectedfields, %qpreds);
-    my ($tmppred, $npreds, $predtext, $predlabel);
+    my ($querystring, @selectedfields, %qpreds);
+    my ($npreds, $predtext, $predlabel);
     $npreds = 0;
     # Go through all the headings so that the selectors get listed in
     # the right order....
@@ -1309,7 +1255,7 @@ sub query_db {
 			return;
 		    }
 		    $$colarrayref[$col - 1] = $result_text;
-		} # for (my $col...
+		} # for 
 		push @rowarray, ($colarrayref);
 	} # while
     } # sql_exec_direct
@@ -1381,7 +1327,6 @@ sub new_array_ref { my @a; return \@a; }
 
 sub peer_client_login {
     my ($peer, $peerusername, $peerpassword) = @_;
-    my @clienterror;
     print "peer_client_login: host $peer, user $peerusername\n" if $debug;
     my $client =
 	eval { RPC::PlClient->new('peeraddr' => $peer,
@@ -1440,8 +1385,7 @@ sub getdsns {
 
 sub describe_table {
     my ($labelptr) = @_;
-    my ($r, $evh, $cnh, $sth, @columnnames);
-    my ($sqlstate, $native, $text, $textlen);
+    my ($r, $evh, $cnh, $sth, @columnnames, $text, $textlen);
     my ($peerusername, $peerpassword) = split /::/, 
          $peers{$labelptr -> {host}};
     my $c = peer_client_login ($labelptr -> {host}, 
@@ -1549,21 +1493,25 @@ MainLoop;
 
 =head1 NAME
 
-  tkdm - Multi-host data manager written in Perl for UnixODBC.pm
+  tkdm - Multi-host data manager for UnixODBC.pm.
+
+=head1 SYNOPSIS
+
+  tkdm [options]
 
 =head1 DESCRIPTION
 
-Tkdm is a personal, multi-host ODBC data manager that uses Perl/Tk for
-its user interface, and the UnixODBC BridgeServer.pm module for
-network communication.  Refer to the UnixODBC::BridgeServer man page
-and the README file of the UnixODBC source code package for details of
-how to configure multi-host ODBC communication.
+Tkdm is a multi-host ODBC data manager that uses Perl/Tk as its user
+interface and the UnixODBC BridgeServer.pm module for network
+communication.  Refer to the UnixODBC::BridgeServer man page and the
+README file of the UnixODBC package for details of how to configure
+multi-host communication with UnixODBC.pm.
 
 =head1 OPTIONS
 
-Tkdm recognizes the following command line options.
+Tkdm recognizes the following options when typed at the shell prompt.
 
-=head2 --bgcolor
+=head2 --background <color>
 
 Set the window background color.
 
@@ -1571,7 +1519,7 @@ Set the window background color.
 
 Print debugging messages on the terminal.
 
-=head2 --displayfont font
+=head2 --displayfont <font>
 
 Set the font used to display widget text.
 
@@ -1579,16 +1527,16 @@ Set the font used to display widget text.
 
 Display the command line options on the terminal and exit.
 
-=head2 --monofont font
+=head2 --monofont <font>
 
 Set the monospaced font used to display columnar data.
 
-=head2 --relief style
+=head2 --relief <style>
 
 Set the widget relief style.  The "style" paramater may be one of:
 "raised," "sunken," "flat," "ridge," "solid," "groove," or "none."
 
-=head2 --selectedfont font
+=head2 --selectedfont <font>
 
 Set the font used to highlight selected widgets.
 
@@ -1597,20 +1545,23 @@ Set the font used to highlight selected widgets.
 =head2 DSN Window
 
 The left-hand window of tkdm displays the network hosts and data
-sources that are available to the UnixODBC bridge server, which were
-configured when the UnixODBC libraries were installed.  If tkdm cannot
-connect to a host, it will display that host's icon X-ed out.
+sources that are available via UnixODBC.pm peer servers on each host
+system on a network, and which are listed in the user's
+$HOME/.odbclogins file (see below).
 
-Clicking on one of the data source labels will cause tkdm to
-request the login user name and password for that data source.
-Once login is successful, you can click on one of the tables in 
-the data source's database, and tkdm will draw a query form for
-that table in the right-hand window.  Refer to the next section.
+If tkdm cannot connect to a host, it will display that host's icon
+X-ed out.
+
+Clicking on a data source label causes tkdm to request the login user
+name and password for that data source.  Once login is successful, you
+can click on one of the tables in the data source's database, and tkdm
+then draws a query form for that table in the right-hand window, 
+as described in the next section.
 
 =head2 Table Query Window
 
 The right hand window presents the controls for selecting and
-inserting data, and executing other types of SQL text queries.
+inserting data, and entering and running other SQL queries.
 
 The three buttons in the upper left-hand corner of the window,
 described here from left to right, perform the following functions:
@@ -1629,40 +1580,39 @@ result set, tkdm will display the data in tabular form in the window.
 
 =head1 CONFIGURATION
 
-You will need to create a file named ".odbclogins" in your
-$HOME directory, which contains the information for logging
-into systems on the network.
+The file $HOME/.odbclogins contains the information for logging into
+each host system on a network that has a  UnixODBC server.
 
 Each line in the .odbclogins file provides the login information 
 for one host, including the local system.  The format of each
 line is:
 
-<hostname>::<username>::<password>
+  <hostname>::<username>::<password>
 
 To access the data sources on the hosts named "accounting," "sales,"
 and "warehouse," for example, the .odbclogins file would look like
 this:
 
- accounting::mylogin::mypassword
- sales::mylogin::mypassword
- warehouse::mylogin::mypassword
+  accounting::mylogin::mypassword
+  sales::mylogin::mypassword
+  warehouse::mylogin::mypassword
 
 Substitute the actual login name and password for each system for
 "mylogin" and "mypassword."  
 
 The format of the .odbclogins file is similar to the odbclogins file
-used by the ODBC server.  There is a sample odbclogins file in the
-bridge directory of the source code directory.
+used by the CGI data manager.  There is a sample odbclogins file in
+the datamanager directory of the UnixODBC package.
 
-Caution - The .odbclogins file can present a signifiant security risk
+CAUTION - The .odbclogins file can present a signifiant security risk
 if other users can read your login data.  To prevent this, remove the
 group and other read permissions for the file, by using the command:
 
-  # chmod 0600 .odbclogins
+  # chmod 0600 ~/.odbclogins
 
 =head1 VERSION INFORMATION AND CREDITS
 
-Version 0.10
+Version 0.11
 
 Tkdm is part of the UnixODBC.pm package.  
 
