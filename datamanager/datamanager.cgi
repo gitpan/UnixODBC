@@ -12,14 +12,21 @@ use RPC::PlClient;
 # 
 my $folder='datamanager';
 
-
 my $loginfile = '/usr/local/etc/odbclogins'; # File that contains login data.
 my %peers; # Peer host login data from /usr/local/etc/odbclogins
 
 my $peerport = 9999;
 my $loginmsg = '';
 
-&readlogins;
+##
+## Connection Status -
+##
+my $HOST_NOT_CONNECTED = 'Not connected';
+my $HOST_CONNECTED = 'Connected';
+my $DSN_OPEN = 'Open DSN';
+my $CLIENT_LOGIN_ERROR = 'Client login error.';
+
+readlogins();
 
 my $q = new CGI;
 my @params = $q -> param;
@@ -37,14 +44,12 @@ my ($dsnuser, $dsnpwd);
 # Temporary strings for URL parameter writing.
 my ($datasource, $dsnparam);
 # Error return value for connect and show tables query
-my $connecterr;
-# List of table names
-my @tablenames;
+my $connect_error;
 
+# Array of table names in current DSN
+my @tablenames;
 # Hosts and child nodes are displayed in order of @dsns array.
-my @dsns;
-my @serverdsns;
-my @servers;
+my @dsns = ();
 
 my $noconnectstr = 'noconnect';
 
@@ -64,113 +69,113 @@ DIV.loginmsg {margin-left: 10}
 </head>
 END_OF_HEADER
 
+getdsns();
+
 if ($#dsnlogin != -1) {
-    $dsnuser = $q -> param('username');
-    $dsnpwd = $q -> param('password');
-    $host = $q -> param ('host');
-    $dsn = $q -> param ('dsn');
-    my ($peeruser, $peerpwd) = split /::/, $peers{$host};
-    $connecterr = &gettablenames ($host, $dsn, $dsnuser, $dsnpwd);
-    if (! length $connecterr) {
+    ($dsnuser, $dsnpwd, $host, $dsn) = 
+	($ENV{'REQUEST_URI'} =~ 
+	 /username=(.*?)&password=(.*?)&host=(.*?)&dsn=(.*?)&/);
+    $dsn =~ s/\+/ /g;
+    $connect_error = 
+	gettablenames ($host, $dsn, $dsnuser, $dsnpwd);
+    if (! defined $connect_error) {
 	$loginmsg = 'Connected to data source <i>' . $dsn .
 	    '</i> on host <i>' . $host . 
 	    '</i> as user <i>' . $dsnuser . '.</i>';
+	foreach my $d (@dsns) {
+	    if ($d -> {host} =~ m"$host") {
+		foreach my $d1 (@{$d -> {dsnarrayref}}) {
+		    $d -> {tablearrayref} = \@tablenames if $d1 =~ m"$dsn";
+		}
+	    }
+	}
     } else {
 	$loginmsg = 'Login error on host <i>'. $host . '.</i>: '. 
-	    $connecterr;
+	    $connect_error;
     }
 } else {
     $loginmsg = 'Not logged in.';
 }
 
-foreach my $peeraddr (keys %peers) {
-    my ($peerusername, $peerpassword) = split /::/, $peers{$peeraddr};
-    my $client =
-	eval { RPC::PlClient->new('peeraddr' => $peeraddr,
-                          'peerport' => $peerport,
-                          'application' => 'RPC::PlServer',
-                          'version' => $UnixODBC::VERSION,
-                          'user' => $peerusername,
-                          'password' => $peerpassword) };
-
-    if (not defined $client) {
-	push @servers, ("$peeraddr - $noconnectstr");
-	next;
+sub getdsns {
+    foreach my $peeraddr (keys %peers) {
+	my ($peerusername, $peerpassword) = split /::/, $peers{$peeraddr};
+	my $dsnptr = new_dsn_label();
+	my ($c, $loginerror) = peer_client_login ($peeraddr,
+						  $peerusename,
+						  $peerpassword);
+	if ($c =~ m"$CLIENT_LOGIN_ERROR") {
+	    print $loginerror;
+	    $dsnptr -> {host} = "$peeraddr - $noconnectstr - $loginerror";
+	    push @dsns, ($dsnptr);
+	    next;
+	}
+	$dsnptr -> {host} = $peeraddr;
+	$dsnptr -> {dsnarrayref} = remotedsn ($c);
+	push @dsns, ($dsnptr);
     }
-
-    my $c = $client -> ClientObject ('BridgeAPI', 'new');
-
-    if (ref $c ne 'RPC::PlClient::Object::BridgeAPI' ) {
-	print qq|Error could not create UnixODBC.pm client object.<br>|;
-	push @servers, ("$peeraddr - $noconnectstr");
-	next;
-    }
-
-    @serverdsns = &remotedsn ($c);
-    foreach my $d (@serverdsns) {
-	push @dsns, ("$peeraddr - $d");
-    }
-    push @servers, ($peeraddr);
 }
 
 print $q -> header;
 # This gets around the <?xml? DTD header in CGI.pm
 print $styleheader;
 print qq|<body bgcolor="white" text="blue">\n|;
-print qq|<img src="/icons/odbc.gif" hspace="5" height = "32" width="32">\n|;
+print qq|<img src="/icons/odbc.gif" hspace="5" height = "32" width="30">\n|;
 print qq|<font size="5">Data Sources</font><p>\n|;
 
 print qq|<div class="loginmsg">|;
 print qq|$loginmsg<p>|;
 print qq|</div>|;
 
-foreach my $s (@servers) {
-    if ($s =~ m"$noconnectstr") { # Couldn't create client object
-                                  # so print no-term and go to next server.
-	local ($servername) = ($s =~ m"(.*) - $noconnectstr");
+foreach my $d (@dsns) {
+    if ($d -> {host} =~ m"$noconnectstr") { # Couldn't create client object
+                                  # so display no-term icon, print 
+	                          # error message, and go to next 
+                                  # server.
+	local ($servername, $loginerror) = 
+	    ($d -> {host} =~ m"(.*?) - $noconnectstr - (.*)");
 	print qq|   <a href="dsns.shtml">\n|;
 	print qq|     <img src="/icons/term-no.gif" border="0" |;
 	print qq|     align="middle" hspace="10"><font size="4">\n|;
 	print qq|     $servername</font>\n|;
-	print qq|   </a><br>\n|;
+	print qq|   </a>|;
+	print qq|   &nbsp;&nbsp;$loginerror<br>\n|;
 	next;
     }
+    local $dp = $d -> {host};
     print qq|   <a href="dsns.shtml">\n|;
     print qq|     <img src="/icons/terminal.gif" border="0" |;
-    print qq|     align="middle" hspace="10"><font size="4">$s</font>\n|;
+    print qq|     align="middle" hspace="10"><font size="4">$dp</font>\n|;
     print qq|   </a><br>\n|;
 
-    foreach my $d (@dsns) {
-	if ($d =~ m"$s") {
-	    ($datasource) = ($d =~ m".* - (.*)");
-	    $dsnparam = $datasource;
-	    $dsnparam =~ s/ /\+/g;
-	    print qq|<div class="dsnlist">\n|;
-	    print qq|<a href="http://$server_addr/$folder/|;
-	    print qq|odbclogin.shtml?hostdsn=$s--$dsnparam" |;
-	    print qq| target="main">\n|;
-	    print qq|<img src="/icons/dsn.gif" border="0" |;
-	    print qq| align="middle" hspace="10">\n|;
-	    print qq|$datasource</a><br>\n|;
-	    print qq|</div>\n|;
-	}
-	if ( ($s =~ m"$host") and ($d =~ m"$dsn") ) {
+    foreach my $d2 (@{$d -> {dsnarrayref}}) {
+	$dsnparam = $d2;
+	$dsnparam =~ s/ /\+/g;
+	print qq|<div class="dsnlist">\n|;
+	print qq|<a href="http://$server_addr/$folder/|;
+        print qq|odbclogin.shtml?hostdsn=$dp--$dsnparam" |;
+        print qq| target="main">\n|;
+        print qq|<img src="/icons/dsn.gif" border="0" |;
+        print qq| align="middle" hspace="10">$d2</a><br>\n|;
+        print qq|</div>\n|;
+	
+	if ( ($#{$d -> {tablearrayref}} != -1 ) &&
+	     ( $d2 =~ m"$dsn") ) {
 	    print qq|<div class="tablelist">|;
-	    foreach my $table (@tablenames) {
+	    foreach my $table (@{$d -> {tablearrayref}}) {
+		local $sp = $d -> {host};
 		print qq|<a href="http://$server_addr/$folder/|;
-                print qq|tables.shtml?hostdsntable=$s--$dsnparam--$table&username=$dsnuser&password=$dsnpwd" |;
+                print qq|tables.shtml?hostdsntable=$sp--$dsnparam--$table&username=$dsnuser&password=$dsnpwd" |;
 		print qq| target="main">\n|;
 		print qq|<img src="/icons/table.gif" border="0" |;
-		print qq| align="middle" hspace="10">\n|;
-		print qq|$table</a><br>\n|;
-	    } # foreach @tablenames
+		print qq| align="middle" hspace="10">$table</a><br>\n|;
+	    } # foreach my $table
 	    print qq|</div>|;
+	} # if $tablearrayref && match $dsn
+    } # foreach dsnarrayref 
+} # foreach @dsns
 
-	} # if match $host and $dsn
-    } # foreach @dsns 
-} # foreach @servers
-
-&endhtml;
+endhtml();
 
 sub endhtml {
     print $q -> end_html;
@@ -182,7 +187,7 @@ sub remotedsn {
     my ($r, $sqlstate, $native, $text, $textlen);
     my ($ldsn, $dsnlength, $driver, $driverlength);
 
-    my @dsns;
+    my @dsnnames;
 
     $evh =  $cp -> sql_alloc_handle ($SQL_HANDLE_ENV, $SQL_NULL_HANDLE);
     $r = $cp -> 
@@ -190,86 +195,73 @@ sub remotedsn {
 
     $cnh = $cp -> sql_alloc_handle ($SQL_HANDLE_DBC, $evh);
 
-    ($r, $sqlstate, $native, $text, $textlen) = 
-	$cp -> sql_get_diag_rec ($SQL_HANDLE_ENV, $evh, 1, 255);
-
     ($r, $ldsn, $dsnlength, $driver, $driverlength) = 
 	$cp -> sql_data_sources ($evh, $SQL_FETCH_FIRST, 255, 255);
-    push @dsns, ($ldsn);
+    push @dsnnames, ($ldsn);
     while (1) {
 	($r, $ldsn, $dsnlength, $driver, $driverlength) = 
 	    $cp -> sql_data_sources ($evh, $SQL_FETCH_NEXT, 255, 255);
 	last unless $r == $SQL_SUCCESS;
-	push @dsns, ($ldsn);
+	push @dsnnames, ($ldsn);
     }
 
     $r = $cp -> sql_free_handle ($SQL_HANDLE_DBC, $cnh);
     $r = $cp -> sql_free_handle ($SQL_HANDLE_ENV, $evh);
 
-    return @dsns;
+    return \@dsnnames;
 }
 
-# Returns Bridge error text, sql_get_diag_rec text or 
-# empty string on success.  The peer host logins are 
-# looked up in the %peers hash, the DSN logins are from 
-# the login form.
 sub gettablenames {
     my ($lhost, $ldsn, $ldsnuser, $ldsnpwd) = @_;
     my ($r, $sqlstate, $native, $text, $textlen);
+    my ($etext, $etextlen);
     my ($evh, $cnh, $sth);
-    $#tablenames = -1;
     my ($peerusername, $peerpassword) = split /::/, $peers{$lhost};
-    my $client = 
-	eval { RPC::PlClient->new('peeraddr' => $lhost,
-				  'peerport' => $peerport,
-				  'application' => 'RPC::PlServer',
-				  'version' => $UnixODBC::VERSION,
-				  'user' => $peerusername,
-				  'password' => $peerpassword) }
-    or return 'Bridge client login error.';
-    my $c = $client -> ClientObject ('BridgeAPI', 'new');
-    if (ref $c ne 'RPC::PlClient::Object::BridgeAPI' ) {
-	return 'Could not create bridge client object.';
-    }
+    chomp $peerusername; chomp $peerpassword;
+    my ($c, $loginerror) = peer_client_login ($lhost, 
+					      $peerusername,
+					      $peerpassword);
 
+    print "$c\n";
+    if ($c =~ m"$CLIENT_LOGIN_ERROR") {
+	return $loginerror;
+    }
+	
     $evh =  $c -> sql_alloc_handle ($SQL_HANDLE_ENV, $SQL_NULL_HANDLE);
     if (defined $evh) { 
 	$r = $c -> 
 	    sql_set_env_attr ($evh, $SQL_ATTR_ODBC_VERSION, $SQL_OV_ODBC2, 0);
     } else {
-	($r, $sqlstate, $native, $text, $textlen) = 
-	    $c -> sql_get_diag_rec ($SQL_HANDLE_ENV, $evh, 1, 255);
-	return $text;
+	return odbc_diag_message ($c, $SQL_HANDLE_ENV, $evh, 
+				  'gettablenames', 'sql_set_env_attr');
     }
 
     $cnh = $c -> sql_alloc_handle ($SQL_HANDLE_DBC, $evh);
     if (! defined $cnh) {
-	($r, $sqlstate, $native, $text, $textlen) = 
-	    $c -> sql_get_diag_rec ($SQL_HANDLE_ENV, $evh, 1, 255);
-	return $text;
+	return odbc_diag_message ($c, $SQL_HANDLE_ENV, $evh, 
+				  'gettablenames', 
+				  'sql_alloc_handle (cnh)');
     }
 
     $r = $c -> sql_connect ($cnh, $ldsn, length($ldsn),
 			$ldsnuser, length($ldsnuser), 
 			$ldsnpwd, length($ldsnpwd));
     if ($r != $SQL_SUCCESS) {
-	($r, $sqlstate, $native, $text, $textlen) = 
-	    $c -> sql_get_diag_rec ($SQL_HANDLE_DBC, $cnh, 1, 255);
-	return $text;
+	return odbc_diag_message ($c, $SQL_HANDLE_DBC, $cnh, 
+				  'gettablenames', 'sql_connect');
     }
 
     $sth = $c -> sql_alloc_handle ($SQL_HANDLE_STMT, $cnh);
     if (! defined $sth) {
-	($r, $sqlstate, $native, $text, $textlen) = 
-	    $c -> sql_get_diag_rec ($SQL_HANDLE_DBC, $cnh, 1, 255);
-	return $text;
+	return odbc_diag_message ($c, $SQL_HANDLE_DBC, $cnh, 
+				  'gettablenames', 
+				  'sql_alloc_handle (sth)');
     }
 
     $r = $c -> sql_tables ($sth, '', 0, '', 0, '', 0, '', 0);
     if ($r != $SQL_SUCCESS) {
-	($r, $sqlstate, $native, $text, $textlen) = 
-	    $c -> sql_get_diag_rec ($SQL_HANDLE_STMT, $sth, 1, 255);
-	return $text;
+	return odbc_diag_message ($c, $SQL_HANDLE_STMT, $sth, 
+				  'gettablenames', 'sql_tables');
     }
 
     while (1) {
@@ -277,42 +269,37 @@ sub gettablenames {
 	last if $r == $SQL_NO_DATA;
 	($r, $text, $textlen) = 
 	    $c -> sql_get_data ($sth, 3, $SQL_C_CHAR, 255);
-	if ($r != $SQL_SUCCESS) {
-	    ($r, $sqlstate, $native, $text, $textlen) = 
-		$c -> sql_get_diag_rec ($SQL_HANDLE_STMT, $sth, 1, 255);
-	    return $text;
+	if ($r == $SQL_ERROR) {
+	    return odbc_diag_message ($c, $SQL_HANDLE_STMT, $sth, 
+				  'gettablenames', 'sql_get_data');
 	} 
 	push @tablenames, ($text);
     }
 
     $r = $c -> sql_free_handle ($SQL_HANDLE_STMT, $sth);
     if ($r != $SQL_SUCCESS) {
-	($r, $sqlstate, $native, $text, $textlen) = 
-	    $c -> sql_get_diag_rec ($SQL_HANDLE_STMT, $sth, 1, 255);
-	return $text;
+	return odbc_diag_message ($c, $SQL_HANDLE_STMT, $sth, 
+				  'gettablenames', 'sql_free_handle (sth)');
     }
 
     $r = $c -> sql_disconnect ($cnh);
     if ($r != $SQL_SUCESS) {
-	($r, $sqlstate, $native, $text, $textlen) = 
-	    $c -> sql_get_diag_rec ($SQL_HANDLE_DBC, $cnh, 1, 255);
-	return $text;
+	return odbc_diag_message ($c, $SQL_HANDLE_DBC, $cnh, 
+				  'gettablenames', 'sql_disconnect');
     }
 
     $r = $c -> sql_free_connect ($cnh);
     if ($r != $SQL_SUCESS) {
-	($r, $sqlstate, $native, $text, $textlen) = 
-	    $c -> sql_get_diag_rec ($SQL_HANDLE_DBC, $cnh, 1, 255);
-	return $text;
+	return odbc_diag_message ($c, $SQL_HANDLE_DBC, $cnh, 
+				  'gettablenames', 'sql_free_connect');
     }
 
     $r = $c -> sql_free_handle ($SQL_HANDLE_ENV, $evh);
     if ($r != $SQL_SUCESS) {
-	($r, $sqlstate, $native, $text, $textlen) = 
-	    $c -> sql_get_diag_rec ($SQL_HANDLE_ENV, $evh, 1, 255);
-	return $text;
+	return odbc_diag_message ($c, $SQL_HANDLE_ENV, $evh, 
+				  'gettablenames', 'sql_free_handle (evh)');
     }
-    return '';
+    return undef;
 }
 
 sub readlogins {
@@ -325,4 +312,45 @@ sub readlogins {
 	$peers{$host} = $userpwd;
     }
     close LOGIN;
+}
+
+sub peer_client_login {
+    my ($peer, $peerusername, $peerpassword) = @_;
+    my @clienterror;
+    my $client =
+	eval { RPC::PlClient->new('peeraddr' => $peer,
+                          'peerport' => $peerport,
+                          'application' => 'RPC::PlServer',
+                          'version' => $UnixODBC::VERSION,
+                          'user' => $peerusername,
+			  'password' => $peerpassword)};
+	  
+    if ($@) { 
+	return ($CLIENT_LOGIN_ERROR, $@);
+    }
+
+    $c = $client -> ClientObject ('BridgeAPI', 'new');
+    if (ref $c ne 'RPC::PlClient::Object::BridgeAPI' ) {
+	return ($CLIENT_LOGIN_ERROR, "Could not start ODBC peer client: $@.");
+    } else {
+	return ($c, undef);
+    }
+}
+
+sub new_dsn_label {
+    my $dsn = 
+    {
+	host => '',
+	dsnarrayref => undef,
+	tablearrayref => undef
+	};
+    return $dsn;
+}
+
+sub odbc_diag_message {
+    my ($c, $handletype, $handle, $func, $unixodbcfunc) = @_;
+    my ($rerror, $sqlstate, $native, $etext, $elength);
+    ($rerror, $sqlstate, $native, $etext, $elength) = 
+	$c -> sql_get_diag_rec ($handletype, $handle, 1, 255);
+    return "[$func][$unixodbcfunc]$etext";
 }

@@ -8,7 +8,8 @@ use UnixODBC::BridgeServer;
 use RPC::PlClient;
 
 my $q = new CGI;
-my $dsnquery = $ENV{'QUERY_STRING_UNESCAPED'};
+#my $dsnquery = $ENV{'QUERY_STRING_UNESCAPED'};
+my $dsnquery = $ENV{'REQUEST_URI'};
 my ($host, $dsn) = ($dsnquery =~ /hostdsn=(.*)--(.*)/);
 $dsn =~ s/\+/ /g;
 
@@ -28,6 +29,7 @@ DIV.loginmsg {margin-left: 10}
 </head>
 END_OF_HEADER
 
+no warnings;
 my $form = <<ENDOFFORM;
 <form action="/cgi-bin/datamanager.cgi" target="dsns">
  <table align="center" cellpadding="10">
@@ -51,7 +53,7 @@ my $form = <<ENDOFFORM;
 </table>
 </form>
 ENDOFFORM
-
+use warnings;
 
 print $q -> header;
 print $styleheader;

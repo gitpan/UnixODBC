@@ -23,18 +23,13 @@ Tkdm Installation
 
    when you try to run the program.
 
-5. Install the program and manual page:
+5. Install the program and manual page, if you didn't install it
+   when you installed UnixODBC.pm:
 
      $ perl Makefile.PL
      $ make
      $ su
      # make install   
-
-5. Print this text and save it as a Unix manual page: 
-
-   pod2man <tkdm >tkdm.1
-   su 
-   cp tkdm.1 /usr/local/man/man1
 
 For a description of how to use tkdm, refer to the manual page:
 type "man tkdm."

@@ -31,8 +31,7 @@ provides support of enterprise-level data management.  Refer
 to the section, "Installing the Web data manager,"
 below. There is also desktop data manager that uses Perl/Tk to
 provide a graphical user interface for queries on networked
-ODBC systems.  It uses a separate Makefile than the other
-programs.  Refer to the file "INSTALL" in the tkdm subdirectory.
+ODBC systems.  Refer to the file "INSTALL" in the tkdm subdirectory.
 
 
 - Installing UnixODBC.pm
@@ -69,6 +68,12 @@ programs.  Refer to the file "INSTALL" in the tkdm subdirectory.
   $ make
   $ su
   # make install
+
+  If this is the first time installing UnixODBC.pm on the
+  system, you can safely ignore the warning that the UnixODBC.pm
+  module is not installed.  If you receive warning messages that
+  other library modules are not installed, you should install
+  them before installing UnixODBC.
 
   To run the test script test.pl, you need to have installed
   the data in the dbms subdirectory.  Refer to "Testing
@@ -207,7 +212,7 @@ programs.  Refer to the file "INSTALL" in the tkdm subdirectory.
   # cp datamanager/*.html /usr/local/apache/htdocs/datamanager
   # cp datamanager/*.shtml /usr/local/apache/htdocs/datamanager
   # cp datamanager/*.gif /usr/local/apache/icons
-  # cp odbclogins /usr/local/etc
+  # cp datamanger/odbclogins /usr/local/etc
   # cp datamanager/*.cgi /usr/local/apache/cgi-bin
   # cd /usr/local/apache/cgi-bin
   # chmod +x tables.cgi datamanager.cgi odbclogin.cgi
@@ -225,7 +230,9 @@ programs.  Refer to the file "INSTALL" in the tkdm subdirectory.
   The user names and passwords need not be the same as those
   used to log in to the DSNs.  They simply need to allow the
   clients (either the CGI scripts or the command-line scripts)
-  to log in to the bridge server on the remote system.
+  to log in to the bridge server on the remote system, so they
+  need to be actual users with passwords, with their own
+  entries in /etc/passwd.  
 
   IMPORTANT - /usr/local/etc/odbclogins contains login data 
   for remote systems, so it is important that you change the 

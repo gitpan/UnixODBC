@@ -464,7 +464,7 @@ our @EXPORT_OK = qw($SQL_NULL_DATA $SQL_DATA_AT_EXEC $SQL_HANDLE_ENV
 our %EXPORT_TAGS = ( 'all' => [@EXPORT_OK] );
 
 our @EXPORT = qw();
-our $VERSION = '0.16';
+our $VERSION = '0.17';
 
 sub AUTOLOAD {
     # This AUTOLOAD is used to 'autoload' constants from the constant()
@@ -2565,12 +2565,12 @@ Refer to the @EXPORT_OK array in UnixODBC.pm.
 
 =head1 AUTHOR
 
-rkiesling@earthlink.net
+Robert Allan Kiesling <rkiesling@earthlink.net>
 
 =head1 SEE ALSO
 
-perl(1). UnixODBC::BridgeServer(3), 
+perl(1), tkdm(1), UnixODBC::BridgeServer(3)
 
-The source code for unixODBC 2.2.1.
+The source code for unixODBC. 
 
 =cut

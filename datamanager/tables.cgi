@@ -19,8 +19,6 @@ my $querytext;
 
 my ($host, $dsn, $table, $user, $password, $querytext, @fields);
 
-my $dbms_name;
-
 my $styleheader = <<END_OF_HEADER;
 <!DOCTYPE html
 	PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
@@ -246,36 +244,29 @@ sub get_fields {
 	&client_error (0, 'sql_alloc_handle sth', $text);
     }
 
-    $dbms_name = &dbms_server_name ($cnh, $c);
-    # If it's postgresql, construct a catalog query
-    if ($dbms_name =~ /postgres/i) { 
-	$querytext = "select attname from pg_attribute " .
-	    "where attrelid = (select relfilenode from pg_class " .
-	    "where relname\=\'$tableparam\') " . 
-	    "and attnum \> 0";
-    } else { 
-	# Assume the dbms supports 'describe' queries like mysql. 
-	$querytext = "describe $tableparam"; 
-    }
-    $r = $c -> sql_exec_direct ($sth, $querytext, length($querytext));
-    if ($r != 0) {
-	($rerror, $sqlstate, $native, $text, $textlen) = 
+    $r = $c -> sql_columns ($sth, '', 0, '', 0,
+			    $tableparam, length($tableparam), 
+			    '', 0);
+    if ($r != $SQL_SUCCESS) {
+	($r, $sqlstate, $native, $text, $textlen) = 
 	    $c -> sql_get_diag_rec ($SQL_HANDLE_STMT, $sth, 1, 255);
-	&client_error ($r, 'sql_exect_direct', $text);
-    } else {
-	($r, $nrows) = $c -> sql_row_count ($sth);
-	if ($r != 0) {
-	    ($rerror, $sqlstate, $native, $text, $textlen) = 
+	&client_error (0, 'sql_columns', $text);
+	return 1;
+    }
+
+    while (1) {
+	$r = $c -> sql_fetch ($sth);
+	last if $r == $SQL_NO_DATA;
+	($r, $text, $textlen) = 
+	    $c -> sql_get_data ($sth, 4, $SQL_C_CHAR, 255);
+	if ($r != $SQL_SUCCESS) {
+	    ($r, $sqlstate, $native, $text, $textlen) = 
 		$c -> sql_get_diag_rec ($SQL_HANDLE_STMT, $sth, 1, 255);
-	    &client_error ($r, 'sql_row_count', $text);
-	}
-	for (my $i = 1; $i <= $nrows; $i++) {
-		$r = $c -> sql_fetch ($sth);
-		($r, $text, $textlen) = 
-		    $c -> sql_get_data ($sth, 1, $SQL_CHAR, 65536);
-		push @lfields, ($text);
-	} # if ($nrows != 0)
-    } # sql_exec_direct
+	    &client_error (0, 'sql_get_data', $text);
+	    return 1;
+	} 
+	push @lfields, ($text);
+    }
 
     $r = $c -> sql_free_handle ($SQL_HANDLE_STMT, $sth);
     if ($r != 0) {
@@ -529,15 +520,10 @@ sub readlogins {
     close LOGIN;
 }
 
-sub dbms_server_name {
-    my ($cnh, $c) = @_;
-    my ($r, $rerror, $sqlstate, $native, $text, $textlen);
-    ($r, $text, $textlen) = 
-	$c -> sql_get_info ($cnh, $SQL_DBMS_NAME, 255);
-    if ($r != 0) {
-	($rerror, $sqlstate, $native, $text, $textlen) = 
-	    $c -> sql_get_diag_rec ($SQL_HANDLE_DBC, $cnh, 1, 255);
-	&client_error ($r, 'sql_get_info', $text);
-    }
-    return $text;
+sub odbc_diag_message {
+    my ($c, $handletype, $handle, $func, $unixodbcfunc) = @_;
+    my ($rerror, $sqlstate, $native, $etext, $elength);
+    ($rerror, $sqlstate, $native, $etext, $elength) = 
+	$c -> sql_get_diag_rec ($handletype, $handle, 1, 255);
+    return "[$func][$unixodbcfunc]$etext";
 }

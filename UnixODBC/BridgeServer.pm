@@ -5,7 +5,7 @@
 
 use lib qw(blib/arch blib/lib);
 
-our $VERSION = '0.16';
+our $VERSION = '0.17';
 
 $| = 1;
 
@@ -677,7 +677,7 @@ UnixODBC.pm.  Instead of setting multiple parameters as in the C
 library functions, the bridge API functions return multiple parameters
 as a list.
 
-=head1 API
+=head1 Application Programming Interface
 
 =head2 ODBC Return Values
 
@@ -696,6 +696,12 @@ as a list.
     $SQL_INVALID_HANDLE             -2
     $SQL_STILL_EXECUTING            2
     $SQL_NEED_DATA                  99
+
+=head2 Methods in the UnixODBC::BridgeServer API
+
+$c is an instance of a UnixODBC client connected to a 
+UnixODBC server.  Refer to the example scripts for sample
+applications.
 
 =head2 dm_log_open ($appname, $logfilename)
 
@@ -1038,7 +1044,8 @@ as a list.
 =head2 sql_tables ($sth, $cat_name, $cat_name_len, $schema_name, $schema_name_len, $table_name, $table_name_len, $table_type, $table_type_len)
 
     Returns SQL API return value.  ODBC Level 3 drivers can specify
-    wilcards.  Returns a result set of 
+    wildcards.  Calls to sql_fetch and sql_get_data return a result
+    set of:
 
     - Catalog name
     - Schema name
@@ -1046,8 +1053,32 @@ as a list.
     - Table type
     - Remarks
 
-    # Return all tables for statement DSN
+    # Print the names of all tables of a DSN
     $r = sql_tables ($sth, '', 0, '', 0, '', 0, '' 0);
+    while (1) {
+	$r = $c -> sql_fetch ($sth);
+	last if $r == $SQL_NO_DATA;
+	($r, $text, $textlen) = 
+	    $c -> sql_get_data ($sth, 3, $SQL_C_CHAR, 255);
+	if ($r != $SQL_SUCCESS) {
+	    ($r, $sqlstate, $native, $text, $textlen) = 
+		$c -> sql_get_diag_rec ($SQL_HANDLE_STMT, $sth, 1, 255);
+	    print "Error: [sql_get_data]$text\n";
+	} 
+	print "$text\n";
+    }
+
+=head1 VERSION INFORMATION AND CREDITS
+
+UnixODBC::BridgeServer.pm is part of the UnixODBC package.
+
+Version: 0.17
+
+Written by: Robert Allan Kiesling <rkiesling@earthlink.net>
+
+=head1 SEE ALSO
+
+perl(1), tkdm(1), UnixODBC(3). 
 
 =cut
 

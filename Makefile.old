@@ -12,34 +12,34 @@
 
 #     LIBS => [q[-lodbc]]
 #     NAME => q[UnixODBC]
-#     VERSION => q[0.13]
+#     VERSION_FROM => q[UnixODBC.pm]
 
 # --- MakeMaker post_initialize section:
 
 
 # --- MakeMaker const_config section:
 
-# These definitions are from config.sh (via /usr/local/lib/perl5/5.8.0/sun4-solaris-thread-multi/Config.pm)
+# These definitions are from config.sh (via /usr/local/lib/perl5/5.8.0/i586-linux/Config.pm)
 
 # They may have been overridden via Makefile.PL or on the command line
 AR = ar
-CC = gcc
-CCCDLFLAGS = -fPIC
-CCDLFLAGS =  -Wl,-E
+CC = cc
+CCCDLFLAGS = -fpic
+CCDLFLAGS = -rdynamic
 DLEXT = so
 DLSRC = dl_dlopen.xs
-LD = gcc
-LDDLFLAGS =  -Wl,-E -G -L/usr/local/lib
-LDFLAGS =  -L/usr/local/lib 
-LIBC = /lib/libc.so
+LD = cc
+LDDLFLAGS = -shared -L/usr/local/lib
+LDFLAGS =  -L/usr/local/lib
+LIBC = /lib/libc-2.1.92.so
 LIB_EXT = .a
 OBJ_EXT = .o
-OSNAME = solaris
-OSVERS = 2.8
+OSNAME = linux
+OSVERS = 2.2.16-22
 RANLIB = :
 SO = so
 EXE_EXT = 
-FULL_AR = /usr/local/bin/ar
+FULL_AR = /usr/bin/ar
 
 
 # --- MakeMaker constants section:
@@ -47,9 +47,9 @@ AR_STATIC_ARGS = cr
 NAME = UnixODBC
 DISTNAME = UnixODBC
 NAME_SYM = UnixODBC
-VERSION = 0.13
-VERSION_SYM = 0_13
-XS_VERSION = 0.13
+VERSION = 0.17
+VERSION_SYM = 0_17
+XS_VERSION = 0.17
 INST_ARCHLIB = blib/arch
 INST_SCRIPT = blib/script
 INST_BIN = blib/bin
@@ -61,22 +61,22 @@ VENDORPREFIX =
 INSTALLPRIVLIB = /usr/local/lib/perl5/5.8.0
 INSTALLSITELIB = /usr/local/lib/perl5/site_perl/5.8.0
 INSTALLVENDORLIB = 
-INSTALLARCHLIB = /usr/local/lib/perl5/5.8.0/sun4-solaris-thread-multi
-INSTALLSITEARCH = /usr/local/lib/perl5/site_perl/5.8.0/sun4-solaris-thread-multi
+INSTALLARCHLIB = /usr/local/lib/perl5/5.8.0/i586-linux
+INSTALLSITEARCH = /usr/local/lib/perl5/site_perl/5.8.0/i586-linux
 INSTALLVENDORARCH = 
 INSTALLBIN = /usr/local/bin
 INSTALLSITEBIN = /usr/local/bin
 INSTALLVENDORBIN = 
 INSTALLSCRIPT = /usr/local/bin
 PERL_LIB = /usr/local/lib/perl5/5.8.0
-PERL_ARCHLIB = /usr/local/lib/perl5/5.8.0/sun4-solaris-thread-multi
+PERL_ARCHLIB = /usr/local/lib/perl5/5.8.0/i586-linux
 SITELIBEXP = /usr/local/lib/perl5/site_perl/5.8.0
-SITEARCHEXP = /usr/local/lib/perl5/site_perl/5.8.0/sun4-solaris-thread-multi
+SITEARCHEXP = /usr/local/lib/perl5/site_perl/5.8.0/i586-linux
 LIBPERL_A = libperl.a
 FIRST_MAKEFILE = Makefile
 MAKE_APERL_FILE = Makefile.aperl
 PERLMAINCC = $(CC)
-PERL_INC = /usr/local/lib/perl5/5.8.0/sun4-solaris-thread-multi/CORE
+PERL_INC = /usr/local/lib/perl5/5.8.0/i586-linux/CORE
 PERL = /usr/local/bin/perl
 FULLPERL = /usr/local/bin/perl
 PERLRUN = $(PERL)
@@ -86,7 +86,7 @@ FULLPERLRUNINST = $(FULLPERLRUN) "-I$(INST_ARCHLIB)" "-I$(INST_LIB)"
 ABSPERL = $(PERL)
 ABSPERLRUN = $(ABSPERL)
 ABSPERLRUNINST = $(ABSPERLRUN) "-I$(INST_ARCHLIB)" "-I$(INST_LIB)"
-FULL_AR = /usr/local/bin/ar
+FULL_AR = /usr/bin/ar
 PERL_CORE = 0
 NOOP = $(SHELL) -c true
 NOECHO = @
@@ -108,6 +108,7 @@ FULLEXT = UnixODBC
 BASEEXT = UnixODBC
 PARENT_NAME = 
 DLBASE = $(BASEEXT)
+VERSION_FROM = UnixODBC.pm
 OBJECT = $(BASEEXT)$(OBJ_EXT)
 LDFROM = $(OBJECT)
 LINKTYPE = dynamic
@@ -118,15 +119,14 @@ C_FILES = UnixODBC.c
 O_FILES = UnixODBC.o
 H_FILES = odbctypes.h
 MAN1PODS = 
-MAN3PODS = UnixODBC.pm \
-	UnixODBC/BridgeServer.pm
+MAN3PODS = UnixODBC.pm
 INST_MAN1DIR = blib/man1
 MAN1EXT = 1
-INSTALLMAN1DIR = /usr/local/share/man/man1
+INSTALLMAN1DIR = /usr/local/man/man1
 INSTALLSITEMAN1DIR = /usr/local/man/man$(MAN1EXT)
 INST_MAN3DIR = blib/man3
 MAN3EXT = 3
-INSTALLMAN3DIR = /usr/local/share/man/man3
+INSTALLMAN3DIR = /usr/local/man/man3
 INSTALLSITEMAN3DIR = /usr/local/man/man$(MAN3EXT)
 PERM_RW = 644
 PERM_RWX = 755
@@ -164,16 +164,10 @@ PERL_ARCHIVE =
 
 PERL_ARCHIVE_AFTER = 
 
-TO_INST_PM = UnixODBC.pm \
-	UnixODBC/BridgeServer.pm \
-	UnixODBC/Datamanager.pm
+TO_INST_PM = UnixODBC.pm
 
 PM_TO_BLIB = UnixODBC.pm \
-	blib/lib/UnixODBC.pm \
-	UnixODBC/BridgeServer.pm \
-	blib/lib/UnixODBC/BridgeServer.pm \
-	UnixODBC/Datamanager.pm \
-	blib/lib/UnixODBC/Datamanager.pm
+	blib/lib/UnixODBC.pm
 
 
 # --- MakeMaker tool_autosplit section:
@@ -197,7 +191,7 @@ XSUBPP_EXTRA_ARGS =
 SHELL = /bin/sh
 CHMOD = chmod
 CP = cp
-LD = gcc
+LD = cc
 MV = mv
 NOOP = $(SHELL) -c true
 RM_F = rm -f
@@ -268,8 +262,8 @@ RCS_LABEL = rcs -Nv$(VERSION_SYM): -q
 
 # --- MakeMaker cflags section:
 
-CCFLAGS = -D_REENTRANT -fno-strict-aliasing
-OPTIMIZE = -O
+CCFLAGS = -fno-strict-aliasing -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -I/usr/include/gdbm
+OPTIMIZE = -O2
 PERLTYPE = 
 MPOLLUTE = 
 
@@ -308,7 +302,7 @@ PASTHRU = LIB="$(LIB)"\
 # --- MakeMaker c_o section:
 
 .c.i:
-	gcc -E -c $(PASTHRU_INC) $(INC) \
+	cc -E -c $(PASTHRU_INC) $(INC) \
 	$(CCFLAGS) $(OPTIMIZE) \
 	$(PERLTYPE) $(MPOLLUTE) $(DEFINE_VERSION) \
 	$(XS_DEFINE_VERSION) $(CCCDLFLAGS) "-I$(PERL_INC)" $(PASTHRU_DEFINE) $(DEFINE) $*.c > $*.i
@@ -365,21 +359,21 @@ config :: $(INST_ARCHAUTODIR)/.exists
 config :: $(INST_AUTODIR)/.exists
 	@$(NOOP)
 
-$(INST_AUTODIR)/.exists :: /usr/local/lib/perl5/5.8.0/sun4-solaris-thread-multi/CORE/perl.h
+$(INST_AUTODIR)/.exists :: /usr/local/lib/perl5/5.8.0/i586-linux/CORE/perl.h
 	@$(MKPATH) $(INST_AUTODIR)
-	@$(EQUALIZE_TIMESTAMP) /usr/local/lib/perl5/5.8.0/sun4-solaris-thread-multi/CORE/perl.h $(INST_AUTODIR)/.exists
+	@$(EQUALIZE_TIMESTAMP) /usr/local/lib/perl5/5.8.0/i586-linux/CORE/perl.h $(INST_AUTODIR)/.exists
 
 	-@$(CHMOD) $(PERM_RWX) $(INST_AUTODIR)
 
-$(INST_LIBDIR)/.exists :: /usr/local/lib/perl5/5.8.0/sun4-solaris-thread-multi/CORE/perl.h
+$(INST_LIBDIR)/.exists :: /usr/local/lib/perl5/5.8.0/i586-linux/CORE/perl.h
 	@$(MKPATH) $(INST_LIBDIR)
-	@$(EQUALIZE_TIMESTAMP) /usr/local/lib/perl5/5.8.0/sun4-solaris-thread-multi/CORE/perl.h $(INST_LIBDIR)/.exists
+	@$(EQUALIZE_TIMESTAMP) /usr/local/lib/perl5/5.8.0/i586-linux/CORE/perl.h $(INST_LIBDIR)/.exists
 
 	-@$(CHMOD) $(PERM_RWX) $(INST_LIBDIR)
 
-$(INST_ARCHAUTODIR)/.exists :: /usr/local/lib/perl5/5.8.0/sun4-solaris-thread-multi/CORE/perl.h
+$(INST_ARCHAUTODIR)/.exists :: /usr/local/lib/perl5/5.8.0/i586-linux/CORE/perl.h
 	@$(MKPATH) $(INST_ARCHAUTODIR)
-	@$(EQUALIZE_TIMESTAMP) /usr/local/lib/perl5/5.8.0/sun4-solaris-thread-multi/CORE/perl.h $(INST_ARCHAUTODIR)/.exists
+	@$(EQUALIZE_TIMESTAMP) /usr/local/lib/perl5/5.8.0/i586-linux/CORE/perl.h $(INST_ARCHAUTODIR)/.exists
 
 	-@$(CHMOD) $(PERM_RWX) $(INST_ARCHAUTODIR)
 
@@ -387,9 +381,9 @@ config :: $(INST_MAN3DIR)/.exists
 	@$(NOOP)
 
 
-$(INST_MAN3DIR)/.exists :: /usr/local/lib/perl5/5.8.0/sun4-solaris-thread-multi/CORE/perl.h
+$(INST_MAN3DIR)/.exists :: /usr/local/lib/perl5/5.8.0/i586-linux/CORE/perl.h
 	@$(MKPATH) $(INST_MAN3DIR)
-	@$(EQUALIZE_TIMESTAMP) /usr/local/lib/perl5/5.8.0/sun4-solaris-thread-multi/CORE/perl.h $(INST_MAN3DIR)/.exists
+	@$(EQUALIZE_TIMESTAMP) /usr/local/lib/perl5/5.8.0/i586-linux/CORE/perl.h $(INST_MAN3DIR)/.exists
 
 	-@$(CHMOD) $(PERM_RWX) $(INST_MAN3DIR)
 
@@ -479,13 +473,10 @@ POD2MAN = $(PERL) -we '%m=@ARGV;for (keys %m){' \
 -e 'system(q[$(PERLRUN) $(POD2MAN_EXE) ].qq[$$_>$$m{$$_}])==0 or warn "Couldn\047t install $$m{$$_}\n";' \
 -e 'chmod(oct($(PERM_RW)), $$m{$$_}) or warn "chmod $(PERM_RW) $$m{$$_}: $$!\n";}'
 
-manifypods : pure_all UnixODBC.pm \
-	UnixODBC/BridgeServer.pm
+manifypods : pure_all UnixODBC.pm
 	@$(POD2MAN) \
 	UnixODBC.pm \
-	$(INST_MAN3DIR)/UnixODBC.$(MAN3EXT) \
-	UnixODBC/BridgeServer.pm \
-	$(INST_MAN3DIR)/UnixODBC::BridgeServer.$(MAN3EXT)
+	$(INST_MAN3DIR)/UnixODBC.$(MAN3EXT)
 
 # --- MakeMaker processPL section:
 
@@ -495,7 +486,16 @@ manifypods : pure_all UnixODBC.pm \
 
 # --- MakeMaker subdirs section:
 
-# none
+# The default clean, realclean and test targets in this Makefile
+# have automatically been given entries for each subdir.
+
+
+subdirs ::
+	@cd UnixODBC && $(MAKE) -f $(FIRST_MAKEFILE) all $(PASTHRU)
+
+subdirs ::
+	@cd tkdm && $(MAKE) -f $(FIRST_MAKEFILE) all $(PASTHRU)
+
 
 # --- MakeMaker clean section:
 
@@ -503,6 +503,8 @@ manifypods : pure_all UnixODBC.pm \
 # the Makefile here so a later make realclean still has a makefile to use.
 
 clean ::
+	-cd UnixODBC && $(TEST_F) Makefile && $(MAKE) clean
+	-cd tkdm && $(TEST_F) Makefile && $(MAKE) clean
 	-rm -rf UnixODBC.c ./blib $(MAKE_APERL_FILE) $(INST_ARCHAUTODIR)/extralibs.all perlmain.c tmon.out mon.out so_locations pm_to_blib *$(OBJ_EXT) *$(LIB_EXT) perl.exe perl perl$(EXE_EXT) $(BOOTSTRAP) $(BASEEXT).bso $(BASEEXT).def lib$(BASEEXT).def $(BASEEXT).exp $(BASEEXT).x core core.*perl.*.? *perl.core
 	-mv Makefile Makefile.old $(DEV_NULL)
 
@@ -511,12 +513,15 @@ clean ::
 
 # Delete temporary files (via clean) and also delete installed files
 realclean purge ::  clean
+	-cd UnixODBC && $(TEST_F) Makefile.old && $(MAKE) -f Makefile.old realclean
+	-cd UnixODBC && $(TEST_F) Makefile && $(MAKE)  realclean
+	-cd tkdm && $(TEST_F) Makefile.old && $(MAKE) -f Makefile.old realclean
+	-cd tkdm && $(TEST_F) Makefile && $(MAKE)  realclean
 	rm -rf $(INST_AUTODIR) $(INST_ARCHAUTODIR)
 	rm -rf $(DISTVNAME)
 	rm -f $(INST_DYNAMIC) $(INST_BOOT)
 	rm -f $(INST_STATIC)
-	rm -f  blib/lib/UnixODBC.pm blib/lib/UnixODBC/BridgeServer.pm
-	rm -f blib/lib/UnixODBC/Datamanager.pm
+	rm -f  blib/lib/UnixODBC.pm
 	rm -rf Makefile Makefile.old
 
 
@@ -780,7 +785,7 @@ $(MAP_TARGET) :: static $(MAKE_APERL_FILE)
 $(MAKE_APERL_FILE) : $(FIRST_MAKEFILE)
 	@echo Writing \"$(MAKE_APERL_FILE)\" for this $(MAP_TARGET)
 	@$(PERLRUNINST) \
-		Makefile.PL DIR= \
+		Makefile.PL DIR=UnixODBC:tkdm \
 		MAKEFILE=$(MAKE_APERL_FILE) LINKTYPE=static \
 		MAKEAPERL=1 NORECURS=1 CCCDLFLAGS=
 
@@ -796,6 +801,8 @@ TESTDB_SW = -d
 testdb :: testdb_$(LINKTYPE)
 
 test :: $(TEST_TYPE)
+	@cd UnixODBC && $(TEST_F) Makefile && $(MAKE) test $(PASTHRU)
+	@cd tkdm && $(TEST_F) Makefile && $(MAKE) test $(PASTHRU)
 
 test_dynamic :: pure_all
 	PERL_DL_NONLAZY=1 $(FULLPERLRUN) "-I$(INST_LIB)" "-I$(INST_ARCHLIB)" $(TEST_FILE)
@@ -816,15 +823,15 @@ testdb_static :: pure_all $(MAP_TARGET)
 # --- MakeMaker ppd section:
 # Creates a PPD (Perl Package Description) for a binary distribution.
 ppd:
-	@$(PERL) -e "print qq{<SOFTPKG NAME=\"$(DISTNAME)\" VERSION=\"0,13,0,0\">\n\t<TITLE>$(DISTNAME)</TITLE>\n\t<ABSTRACT></ABSTRACT>\n\t<AUTHOR></AUTHOR>\n}" > $(DISTNAME).ppd
+	@$(PERL) -e "print qq{<SOFTPKG NAME=\"$(DISTNAME)\" VERSION=\"0,17,0,0\">\n\t<TITLE>$(DISTNAME)</TITLE>\n\t<ABSTRACT></ABSTRACT>\n\t<AUTHOR></AUTHOR>\n}" > $(DISTNAME).ppd
 	@$(PERL) -e "print qq{\t<IMPLEMENTATION>\n}" >> $(DISTNAME).ppd
-	@$(PERL) -e "print qq{\t\t<OS NAME=\"$(OSNAME)\" />\n\t\t<ARCHITECTURE NAME=\"sun4-solaris-thread-multi\" />\n\t\t<CODEBASE HREF=\"\" />\n\t</IMPLEMENTATION>\n</SOFTPKG>\n}" >> $(DISTNAME).ppd
+	@$(PERL) -e "print qq{\t\t<OS NAME=\"$(OSNAME)\" />\n\t\t<ARCHITECTURE NAME=\"i586-linux\" />\n\t\t<CODEBASE HREF=\"\" />\n\t</IMPLEMENTATION>\n</SOFTPKG>\n}" >> $(DISTNAME).ppd
 
 # --- MakeMaker pm_to_blib section:
 
 pm_to_blib: $(TO_INST_PM)
 	@$(PERLRUNINST) "-MExtUtils::Install" \
-	-e "pm_to_blib({qw{UnixODBC.pm blib/lib/UnixODBC.pm UnixODBC/BridgeServer.pm blib/lib/UnixODBC/BridgeServer.pm UnixODBC/Datamanager.pm blib/lib/UnixODBC/Datamanager.pm}},'$(INST_LIB)/auto','$(PM_FILTER)')"
+	-e "pm_to_blib({qw{UnixODBC.pm blib/lib/UnixODBC.pm}},'$(INST_LIB)/auto','$(PM_FILTER)')"
 	@$(TOUCH) $@
 
 # --- MakeMaker selfdocument section:

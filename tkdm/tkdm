@@ -1,5 +1,8 @@
 #!/usr/local/bin/perl -w
 
+$VERSION=0.10;
+@EXPORT_OK=(qw/$VERSION/);
+
 use Tk;
 use Tk::Font;
 use Tk::Balloon;
@@ -1550,12 +1553,11 @@ MainLoop;
 
 =head1 DESCRIPTION
 
-Tkdm is a personal, multi-host ODBC data manager that uses
-Perl/Tk for its user interface, and UnixODBC::BridgeServer.pm
-and its configuration files for network communication.  Refer
-to the UnixODBC::BridgeServer man page and the README file 
-of the UnixODBC source code package for details of how to 
-configure multi-host ODBC communication.
+Tkdm is a personal, multi-host ODBC data manager that uses Perl/Tk for
+its user interface, and the UnixODBC BridgeServer.pm module for
+network communication.  Refer to the UnixODBC::BridgeServer man page
+and the README file of the UnixODBC source code package for details of
+how to configure multi-host ODBC communication.
 
 =head1 OPTIONS
 
@@ -1571,11 +1573,11 @@ Print debugging messages on the terminal.
 
 =head2 --displayfont font
 
-Set the font used for widget text.
+Set the font used to display widget text.
 
 =head2 --help
 
-Print the command line help options and exit.
+Display the command line options on the terminal and exit.
 
 =head2 --monofont font
 
@@ -1588,7 +1590,7 @@ Set the widget relief style.  The "style" paramater may be one of:
 
 =head2 --selectedfont font
 
-Set the font to highlight selected widgets.
+Set the font used to highlight selected widgets.
 
 =head1 Usage
 
@@ -1597,7 +1599,7 @@ Set the font to highlight selected widgets.
 The left-hand window of tkdm displays the network hosts and data
 sources that are available to the UnixODBC bridge server, which were
 configured when the UnixODBC libraries were installed.  If tkdm cannot
-connect to a host, it will display that host X-ed out.
+connect to a host, it will display that host's icon X-ed out.
 
 Clicking on one of the data source labels will cause tkdm to
 request the login user name and password for that data source.
@@ -1607,32 +1609,70 @@ that table in the right-hand window.  Refer to the next section.
 
 =head2 Table Query Window
 
-The right hand window presents the controls for executing various
-types of queries, as well as selecting and inserting data.  
+The right hand window presents the controls for selecting and
+inserting data, and executing other types of SQL text queries.
 
 The three buttons in the upper left-hand corner of the window,
 described here from left to right, perform the following functions:
 
 - Execute a SELECT query, modified using the field selectors and
-predicate inputs underneath the button.
+predicate inputs in the checkboxes and text entry boxes.
 
 - Execute an INSERT query, using the data entered in the text entry
-boxes underneath the button.
+boxes.
 
 - Open a dialog box where the user can enter the text of a SQL query.
 
 Once the query is submitted, tkdm will display the number of rows and
-columns in the result set, and, if the query is a SELECT SQL query, 
-will print the result set in tabular form in the window.  
+columns in the result set, and, if the query returns data in the 
+result set, tkdm will display the data in tabular form in the window.  
 
-=head1 Version Information and Credits
+=head1 CONFIGURATION
 
-Tkdm is part of the UnixODBC.pm package.  This version of tkdm
-is current as of UnixODBC.pm version 0.16.
+You will need to create a file named ".odbclogins" in your
+$HOME directory, which contains the information for logging
+into systems on the network.
+
+Each line in the .odbclogins file provides the login information 
+for one host, including the local system.  The format of each
+line is:
+
+<hostname>::<username>::<password>
+
+To access the data sources on the hosts named "accounting," "sales,"
+and "warehouse," for example, the .odbclogins file would look like
+this:
+
+ accounting::mylogin::mypassword
+ sales::mylogin::mypassword
+ warehouse::mylogin::mypassword
+
+Substitute the actual login name and password for each system for
+"mylogin" and "mypassword."  
+
+The format of the .odbclogins file is similar to the odbclogins file
+used by the ODBC server.  There is a sample odbclogins file in the
+bridge directory of the source code directory.
+
+Caution - The .odbclogins file can present a signifiant security risk
+if other users can read your login data.  To prevent this, remove the
+group and other read permissions for the file, by using the command:
+
+  # chmod 0600 .odbclogins
+
+=head1 VERSION INFORMATION AND CREDITS
+
+Version 0.10
+
+Tkdm is part of the UnixODBC.pm package.  
 
 Written by: Robert Allan Kiesling <rkiesling@earthlink.net>.
 
 Licensed under the same terms as Perl.  Please refer to the
 file "Artistic" for details.
+
+=head1 SEE ALSO
+
+perl(1), UnixODBC(3), UnixODBC::BridgeServer(3).
 
 =cut
