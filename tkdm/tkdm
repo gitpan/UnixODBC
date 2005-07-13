@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 
-#$Id: tkdm,v 1.19 2004/03/06 21:52:14 kiesling Exp $
+#$Id: tkdm,v 1.20 2005/07/12 01:05:55 kiesling Exp $
 
-$VERSION='0.19';
+$VERSION='0.20';
 @EXPORT_OK=(qw/$VERSION/);
 
 use Tk;
@@ -489,7 +489,7 @@ my %textsizes;
 sub about {
     my $mw = $_[0];
     my $abouttext = "Tkdm Version $VERSION\n" .
-	"Copyright \xa9 2002-2004 by Robert Allan Kiesling.\n" .
+	"Copyright \xa9 2002-2005 by Robert Kiesling.\n" .
 	"Licensed using the same license as Perl.  Refer to the file " .
 	"\"Artistic\" for information.\n";
     my $dialog = $mw -> Dialog (-title => 'About Tkdm',
@@ -1947,11 +1947,11 @@ the, "group," and, "other," permissions from the file, with:
 
 =head1 VERSION INFORMATION AND CREDITS
 
-$Id: tkdm,v 1.19 2004/03/06 21:52:14 kiesling Exp $
+$Id: tkdm,v 1.20 2005/07/12 01:05:55 kiesling Exp $
 
 Tkdm is part of the UnixODBC.  
 
-Copyright © 2002-2004 Robert Kiesling, rkies@cpan.org.
+Copyright © 2002-2005 Robert Kiesling, rkies@cpan.org.
 
 Licensed under the same terms as Perl.  Refer to the file, "Artistic,"
 for details.

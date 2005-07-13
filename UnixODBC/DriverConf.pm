@@ -1,6 +1,6 @@
 package UnixODBC::DriverConf;
 
-# $Id: DriverConf.pm,v 1.16 2004/03/30 15:07:28 kiesling Exp $
+# $Id: DriverConf.pm,v 1.17 2005/07/12 01:17:35 kiesling Exp $
 
 our $VERSION=0.01;
 
@@ -343,7 +343,7 @@ Version 0.01
 
 =head1 COPYRIGHT
 
-Copyright © 2004 Robert Kiesling, rkies@cpan.org.
+Copyright © 2004-2005 Robert Kiesling, rkies@cpan.org.
 
 Licensed under the same terms as Perl.  Refer to the file, "Artistic,"
 for details.

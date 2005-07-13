@@ -2,7 +2,7 @@
 #include "perl.h"
 #include "XSUB.h"
 
-/* $Id: UnixODBC.xs,v 1.34 2004/03/24 00:54:42 kiesling Exp $ */
+/* $Id: UnixODBC.xs,v 1.35 2005/07/12 01:01:44 kiesling Exp $ */
 
 #include <sql.h>
 #include <sqlext.h>
@@ -1137,7 +1137,7 @@ __SQLGetInstalledDrivers ()
 	SV **s;
 	CODE:
 	RETVAL = newAV();
-            r = SQLGetInstalledDrivers (nbuf, SQL_MAX_MESSAGE_LENGTH, &nret);
+        r = SQLGetInstalledDrivers (nbuf, SQL_MAX_MESSAGE_LENGTH, &nret);
 	nbuf[nret]=0;
 	j = nbuf;
 	i = 0;
@@ -1154,7 +1154,10 @@ __SQLGetInstalledDrivers ()
 	
 	safefree(nbuf);
 	OUTPUT:
-		RETVAL	
+		RETVAL
+        CLEANUP:
+                SvREFCNT_dec (RETVAL);
+
 
 HV *
 __ODBCINSTConstructPropertyValues (driver)
@@ -1190,6 +1193,8 @@ __ODBCINSTConstructPropertyValues (driver)
          
 	OUTPUT:
 		RETVAL
+        CLEANUP:
+                SvREFCNT_dec (RETVAL);
 
 HV *
 __ODBCINSTConstructPropertyHelp (driver)
@@ -1227,6 +1232,8 @@ __ODBCINSTConstructPropertyHelp (driver)
          
 	OUTPUT:
 		RETVAL
+        CLEANUP:
+                SvREFCNT_dec (RETVAL);
 
 HV *
 __ODBCINSTConstructPropertyPrompt (driver)
@@ -1262,6 +1269,8 @@ __ODBCINSTConstructPropertyPrompt (driver)
          
 	OUTPUT:
 		RETVAL
+        CLEANUP:
+                SvREFCNT_dec (RETVAL);
 
 HV *
 __ODBCINSTConstructPropertyPromptData (driver)
@@ -1312,6 +1321,8 @@ __ODBCINSTConstructPropertyPromptData (driver)
          
 	OUTPUT:
 		RETVAL
+        CLEANUP:
+                SvREFCNT_dec (RETVAL);
 
 unsigned int
 __SQLGetConfigMode ()

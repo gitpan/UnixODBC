@@ -7,6 +7,7 @@ UnixODBC.pm Installation
   - Installing UnixODBC.pm
   - Testing UnixODBC.pm
   - Installing and Configuring the Bridge Server
+  - Manual Installation 
   - Installing the GUI Data Manager, Tkdm
   - Installing the Web data manager
   - Text-mode Programs
@@ -31,6 +32,11 @@ and the file, "INSTALL," in the tkdm/ subdirectory.
 
 
 - Installing UnixODBC.pm
+
+  The libraries themselves should be installable using the steps
+  described in this section.  If necessary, you can install the
+  bridge server and example applications as described in the 
+  section, "Manual Installation."
 
   The unixODBC libraries, from http://www.unixodbc.org/, and an 
   ODBC driver for your DBMS server, should be installed and 
@@ -148,8 +154,10 @@ and the file, "INSTALL," in the tkdm/ subdirectory.
     # /usr/local/etc/init.d/unixodbc start
     # /usr/local/etc/init.d/unixodbc stop
 
-  Manual Installation - Create the directories /usr/local/etc,
-  /usr/local/var, and /usr/local/sbin if they don't exist.  Then,
+-  Manual Installation 
+
+   Install the bridge server manually with the following shell
+   commands.
 
     $ su
     # mkdir /usr/local/var/odbcbridge
@@ -170,8 +178,8 @@ and the file, "INSTALL," in the tkdm/ subdirectory.
     # /usr/local/etc/init.d/unixodbc stop
 
   To start the server when the system starts, install the unixodbc 
-  script in the same directory as the other local startup scripts, 
-  refer to the system administration documents for information 
+  script in the same directory as the other local startup scripts. 
+  Refer to the system administration documents for information 
   about how to start daemons during system initialization.
 
 
@@ -210,8 +218,16 @@ and the file, "INSTALL," in the tkdm/ subdirectory.
     <Directory "/usr/local/apache/htdocs/datamanager">
         Options FollowSymLinks Includes
     </Directory>
+
+  For Apache 1.3.x, uncomment the following lines in httpd.conf.
+
     AddType text/html .shtml
     AddHandler server-parsed .shtml
+
+  For Apache 2.0.x, uncomment these lines in httpd.conf.
+
+    AddType text/html .shtml
+    AddOutputFilter INCLUDES .shtml
 
   To add the path for all of the libraries to the server's 
   environment, add a line like this to httpd.conf:
@@ -410,10 +426,10 @@ and the file, "INSTALL," in the tkdm/ subdirectory.
 
   UnixODBC.pm is written by Robert Kiesling, rkies@cpan.org.
 
-  Copyright © 2002-2004 by Robert Kiesling and licensed under
-  the same terms as Perl.  Refer to the file, "Artistic," for the 
+  Copyright © 2002-2005 by Robert Kiesling and licensed under
+  the same terms as Perl.  Refer to the file, "Artistic," for
   details.
 
-  $Id: README,v 1.19 2004/03/14 00:27:44 kiesling Exp $
+  $Id: README,v 1.22 2005/07/08 12:42:44 kiesling Exp $
 
 

@@ -1,6 +1,6 @@
 package UnixODBC;
 
-#$Id: UnixODBC.pm,v 1.54 2004/04/18 01:41:49 kiesling Exp $
+#$Id: UnixODBC.pm,v 1.56 2005/07/12 01:17:54 kiesling Exp $
 
 use strict;
 use warnings;
@@ -468,7 +468,7 @@ our @EXPORT_OK = qw($SQL_NULL_DATA $SQL_DATA_AT_EXEC $SQL_HANDLE_ENV
 our %EXPORT_TAGS = ( 'all' => [@EXPORT_OK] );
 
 our @EXPORT = qw();
-our $VERSION = '0.30';
+our $VERSION = '0.33';
 
 sub AUTOLOAD {
     # This AUTOLOAD is used to 'autoload' constants from the constant()
@@ -3459,7 +3459,7 @@ how to cope with different data types and attribute masks.
 
   #!/usr/bin/perl -w
 
-  # $Id: UnixODBC.pm,v 1.54 2004/04/18 01:41:49 kiesling Exp $
+  # $Id: UnixODBC.pm,v 1.56 2005/07/12 01:17:54 kiesling Exp $
   $VERSION=1.0;
 
   use UnixODBC qw(:all);
@@ -4228,9 +4228,9 @@ Refer to the @EXPORT_OK array in UnixODBC.pm.
 
 =head1 VERSION INFORMATION AND CREDITS
 
-Version 0.32
+Version 0.33
 
-Copyright © 2002 - 2004 Robert Kiesling, rkies@cpan.org.
+Copyright © 2002 - 2005 Robert Kiesling, rkies@cpan.org.
 
 Licensed under the same terms as Perl.  Refer to the file, "Artistic,"
 for details.
@@ -4239,6 +4239,6 @@ for details.
 
 perl(1), UnixODBC::DriverConf(3), UnixODBC::BridgeServer(3), tkdm(1),
 alltypes(1), apifuncs(1), colattributes(1), connectinfo(1),
-datasources(1), driverinfo(1), sqltables(1), odbcbridge(1)
+datasources(1), driverinfo(1), sqltables(1), odbcbridge(1), 
 
 =cut
