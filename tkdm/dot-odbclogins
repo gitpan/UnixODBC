@@ -1,4 +1,4 @@
-# $Id: dot-odbclogins,v 1.2 2003/07/13 14:15:24 kiesling Exp $
+# $Id: dot-odbclogins,v 1.2 2003-07-13 14:15:24 kiesling Exp $
 #
 # $HOME/.odbclogins file.  Each line has the format:
 # 

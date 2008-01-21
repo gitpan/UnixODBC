@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# $Id: tables.cgi,v 1.3 2004/03/13 23:25:07 kiesling Exp $
+# $Id: tables.cgi,v 1.3 2004-03-13 23:25:07 kiesling Exp $
 
 use UnixODBC (':all');
 use UnixODBC::BridgeServer;

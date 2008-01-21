@@ -2,12 +2,14 @@
 #include "perl.h"
 #include "XSUB.h"
 
-/* $Id: UnixODBC.xs,v 1.35 2005/07/12 01:01:44 kiesling Exp $ */
+/* $Id: UnixODBC.xs,v 1.37 2008-01-20 10:30:11 kiesling Exp $ */
 
 #include <sql.h>
 #include <sqlext.h>
 #include <sqlucode.h>
-
+#ifndef __SQLTYPES_H  /* Make sure we have all of the definitions we need. */
+#include "sqltypes.h"
+#endif
 /* from ini.h */
 #define     INI_MAX_LINE            1000
 #define     INI_MAX_PROPERTY_NAME   INI_MAX_LINE
@@ -40,6 +42,7 @@ typedef struct	tODBCINSTPROPERTY
 		valid one */
 } ODBCINSTPROPERTY, *HODBCINSTPROPERTY;
 
+char *odbcinst_system_file_path( void );
 
 
 static int
@@ -78,7 +81,7 @@ dm_log_open (program_name, logfilename)
         char *program_name;
         char *logfilename;
         CODE: 
-                dm_log_open ( program_name, logfilename );
+                dm_log_open ( program_name, logfilename, 0 );
                 RETVAL = 0;
         OUTPUT:
                 RETVAL

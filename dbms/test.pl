@@ -1,21 +1,7 @@
 # Before `make install' is performed this script should be runnable with
 # `make test'. After `make install' it should work as `perl test.pl'
 
-# To run: perl -Mblib test.pl
-
-##
-## Check for old log file.
-##
-my $logfile = '/tmp/UnixODBC.log';
-my $answer;
-if ( -f $logfile ) {
-    print "Old log file $logfile exists.  Delete (Y/n)?";
-    $answer = getc(STDIN);
-    `rm -f $logfile` if $answer !~ /n/i;
-    print "\n";
-}
-
-######################### We start with some black magic to print on failure.
+######################### 
 
 # Change 1..1 below to 1..last_test_to_print .
 # (It may become useful if the test is moved to ./t subdirectory.)
@@ -26,7 +12,7 @@ use UnixODBC ':all';
 $loaded = 1;
 print "ok 1\n";
 
-######################### End of black magic.
+######################### 
 
 use Devel::Peek;
 
@@ -38,8 +24,20 @@ my $programname = 'test.pl';
 
 # Connect parameters
 my $DSN="Gutenberg Catalog";
-my $UserName="";
+#
+#  Change to the DBMS user name and password.  For PostgreSQL after
+#  installation, "postgres," should work.  For MySQL, "root" should
+#  work after installation, or start 
+#  mysqld_safe with --skip-grant-tables.
+#
+my $UserName="postgres";
 my $PassWord="";
+
+#
+#  Uncomment this line if you are using the unixODBC 
+#  postgresql driver.
+#
+# $SIG{PIPE} = sub { print "SIGPIPE: $!\n" };
 
 # Variables for SQLGetDataSources
 my ($dsnname,$drivername,$messagelength1, $messagelength2);
@@ -72,13 +70,11 @@ my $datafence = '-' x 20;
 
 # Queries for test table
 
-&UnixODBC::dm_log_open ($programname, $logfile);
-
 $SIG{PIPE} = sub{print "SIGPIPE: ". $!."\n"};
 
-## 
-## Handle allocation, Data sources, and ODBC Version
-##
+print "======================================================\n";
+print "Handle Allocation, Data Sources, and ODBC Version.\n";
+print "======================================================\n";
 
 print "Allocate environment handle... "; 
 $r = &UnixODBC::SQLAllocHandle ($SQL_HANDLE_ENV, $SQL_NULL_HANDLE, $evh);
@@ -149,7 +145,7 @@ if (($r==$SQL_SUCCESS)||($r==$SQL_NO_DATA)) {
     &getdiagrec ($SQL_HANDLE_DBC, $cnh);
 }
 
-print "Get Data Sources... \n";
+print "Get Data Sources... ";
 $r = &UnixODBC::SQLDataSources ( $evh, $SQL_FETCH_FIRST, $dsnname, 255, 
 				 $messagelength1, $drivername, 255, 
 				 $messagelength2 );
@@ -184,13 +180,13 @@ if (($r==$SQL_SUCCESS)||($r==$SQL_NO_DATA)) {
     &getdiagrec ($SQL_HANDLE_ENV, $evh);
 }
 
-&UnixODBC::dm_log_close;
-
 ##
 ## Connection to DSN
 ##
 
-&UnixODBC::dm_log_open ($programname, $logfile);
+print "======================================================\n";
+print "Connect to DSN\n";
+print "======================================================\n";
 
 print "Allocate environment handle... "; 
 $r = &UnixODBC::SQLAllocHandle ($SQL_HANDLE_ENV, $SQL_NULL_HANDLE, $evh);
@@ -305,14 +301,13 @@ if (($r==$SQL_SUCCESS)||($r==$SQL_NO_DATA)) {
     &getdiagrec ($SQL_HANDLE_ENV, $evh);
 }
 
-&UnixODBC::dm_log_close();
-
 ##
 ## SQL Query and Fetch
 ##
 
-&UnixODBC::dm_log_open($programname, $logfile);
-
+print "======================================================\n";
+print "SQL Query and Data Fetch.\n";
+print "======================================================\n";
 print "Allocate environment handle... "; 
 $r = &UnixODBC::SQLAllocHandle ($SQL_HANDLE_ENV, $SQL_NULL_HANDLE, $evh);
 if (($r==$SQL_SUCCESS)||($r==$SQL_NO_DATA)) {
@@ -475,13 +470,12 @@ if (($r==$SQL_SUCCESS)||($r==$SQL_NO_DATA)) {
     &getdiagrec ($SQL_HANDLE_ENV, $evh);
 }
 
-&UnixODBC::dm_log_close();
-
 ###
 ### Get info for data types
 ###
-
-&UnixODBC::dm_log_open($programname, $logfile);
+print "======================================================\n";
+print "Data Types Info.\n";
+print "======================================================\n";
 
 print "Allocate environment handle... "; 
 $r = &UnixODBC::SQLAllocHandle ($SQL_HANDLE_ENV, $SQL_NULL_HANDLE, $evh);
@@ -593,14 +587,13 @@ if (($r==$SQL_SUCCESS)||($r==$SQL_NO_DATA)) {
     &getdiagrec ($SQL_HANDLE_ENV, $evh);
 }
 
-&UnixODBC::dm_log_close();
-
 ##
 ## Execute and fetch with prepared SQL query.
 ##
 
-&UnixODBC::dm_log_open($programname, $logfile);
-
+print "======================================================\n";
+print "Prepared Query and Data Fetch\n";
+print "======================================================\n";
 print "Allocate environment handle... "; 
 $r = &UnixODBC::SQLAllocHandle ($SQL_HANDLE_ENV, $SQL_NULL_HANDLE, $evh);
 if (($r==$SQL_SUCCESS)||($r==$SQL_NO_DATA)) {
@@ -794,14 +787,13 @@ if (($r==$SQL_SUCCESS)||($r==$SQL_NO_DATA)) {
     &getdiagrec ($SQL_HANDLE_ENV, $evh);
 }
 
-&UnixODBC::dm_log_close();
-
 ##
 ## Translate SQL statement
 ##
 
-&UnixODBC::dm_log_open($programname, $logfile);
-
+print "======================================================\n";
+print "Translate SQL Statement\n";
+print "======================================================\n";
 print "Allocate environment handle... "; 
 $r = &UnixODBC::SQLAllocHandle ($SQL_HANDLE_ENV,
 				 $SQL_NULL_HANDLE, $evh);
@@ -865,7 +857,7 @@ print "Translate SQL statement... ";
 $r = &UnixODBC::SQLNativeSql ($cnh, $query, length ($query), $rbuf, 
 			      255, $mlen);
 print "\n$datafence\n";
-print "$rbuf, $mlen\n";
+print "Statement: \"$rbuf\" Length: \"$mlen\"\n";
 print "$datafence\n";
 if (($r==$SQL_SUCCESS)||($r==$SQL_NO_DATA)) {
     print "ok 74\n";
@@ -901,14 +893,13 @@ if (($r==$SQL_SUCCESS)||($r==$SQL_NO_DATA)) {
     &getdiagrec ($SQL_HANDLE_ENV, $evh);
 }
 
-&UnixODBC::dm_log_close();
-
 ##
 ## SQL Query and FetchScroll
 ##
 
-&UnixODBC::dm_log_open($programname, $logfile);
-
+print "======================================================\n";
+print "SQL Query and FetchScroll\n";
+print "======================================================\n";
 print "Allocate environment handle... "; 
 $r = &UnixODBC::SQLAllocHandle ($SQL_HANDLE_ENV, $SQL_NULL_HANDLE, $evh);
 if (($r==$SQL_SUCCESS)||($r==$SQL_NO_DATA)) {
@@ -1041,9 +1032,10 @@ while (1) {
     $r = &UnixODBC::SQLGetData ($sth, 5, $SQL_C_CHAR, $title, 255, $mlen);
     print "$title\n";
 }
+print "$datafence\n";
 
 print "Set position... ";
-$r = &UnixODBC::SQLSetPos ($sth, 1, $SQL_POSITION, $SQL_LOCK_NO_CHANGE);
+$r = &UnixODBC::SQLSetPos ($sth, 1, $SQL_UPDATE, $SQL_LOCK_UNLOCK);
 if ($r==$SQL_SUCCESS) {
     print "ok 91\n";
 } else {
@@ -1080,7 +1072,7 @@ if (($r==$SQL_SUCCESS)||($r==$SQL_NO_DATA)) {
 
 print "Get column names...";
 $r = &UnixODBC::SQLColumns ($sth, '', 0, '', 0, 
-			    'titles', length ('titles'),
+			    'titles', $SQL_NTS,
 			    '', 0);
 if ($r==$SQL_SUCCESS) {
     print "ok 95\n";
@@ -1092,7 +1084,7 @@ while (1) {
     $r = &UnixODBC::SQLFetch ($sth);
     last if $r == $SQL_NO_DATA;
     foreach my $cn (1..4) {
-	$r=&UnixODBC::SQLGetData ($sth, $cn, $SQL_C_CHAR, $rbuf, 255, $mlen);
+	$r=&UnixODBC::SQLGetData ($sth, $cn, $SQL_C_CHAR, $rbuf, 4096, $mlen);
 	print "$rbuf ";
     }
     print "\n";
@@ -1123,7 +1115,7 @@ if (($r==$SQL_SUCCESS)||($r==$SQL_NO_DATA)) {
 }
 
 print "Get primary keys... ";
-$r = &UnixODBC::SQLPrimaryKeys ($sth, '', 0, '', 0, 'titles', 6);
+$r = &UnixODBC::SQLPrimaryKeys ($sth, '', 0, '', 0, 'titles', $SQL_NTS);
 if (($r==$SQL_SUCCESS)||($r==$SQL_NO_DATA)) {
     print "ok 99 \n";
 } else {
@@ -1177,9 +1169,8 @@ if (($r==$SQL_SUCCESS)||($r==$SQL_NO_DATA)) {
 }
 
 print "Get column privileges...";
-$r = &UnixODBC::SQLColumnPrivileges ($sth, '', 0, '', 0, 
-				     'titles', length ('titles'),
-				     'id_no', length ('id_no'));
+$r = &UnixODBC::SQLColumnPrivileges ($sth, '', 0, '', 0, 'titles', $SQL_NTS,
+				     'id_no', $SQL_NTS);
 if ($r==$SQL_SUCCESS) {
     print "ok 105\n";
 } else {
@@ -1369,10 +1360,6 @@ if ($r==$SQL_SUCCESS) {
     &getdiagrec ($SQL_HANDLE_ENV, $evh);
 }
 
-&UnixODBC::dm_log_close();
-
-&UnixODBC::dm_log_open($programname, $logfile);
-
 print "Allocate environment handle... "; 
 $r = &UnixODBC::SQLAllocHandle ($SQL_HANDLE_ENV, $SQL_NULL_HANDLE, $evh);
 if (($r==$SQL_SUCCESS)||($r==$SQL_NO_DATA)) {
@@ -1496,14 +1483,12 @@ if ($r==$SQL_SUCCESS) {
     &getdiagrec ($SQL_HANDLE_ENV, $evh);
 }
 
-&UnixODBC::dm_log_close();
-
 sub getdiagrec {
     my ($handle_type, $handle) = @_;
     my ($sqlstate, $native, $message_text);
     print 'SQLGetDiagRec: ';
     $r = &UnixODBC::SQLGetDiagRec ($handle_type, $handle, 1, $sqlstate,
-				   $native, $message_text, 255,
+				   $native, $message_text, 4096,
 				   $mlen);
     if ($r == $SQL_NO_DATA) { 
 	print "result \= SQL_NO_DATA\n";

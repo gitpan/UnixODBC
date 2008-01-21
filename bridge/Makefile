@@ -1,5 +1,5 @@
 ###
-### $Id: Makefile,v 1.2 2005/07/08 12:26:09 kiesling Exp $ 
+### $Id: Makefile,v 1.2 2005-07-08 12:26:09 kiesling Exp $ 
 ###
 ### Install ODBC bridge, conf files, and clients.
 ###

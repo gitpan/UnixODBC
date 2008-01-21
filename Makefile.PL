@@ -2,7 +2,7 @@ use ExtUtils::MakeMaker;
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
 
-# $Id: Makefile.PL,v 1.4 2004/03/16 05:57:27 kiesling Exp $
+# $Id: Makefile.PL,v 1.4 2004-03-16 05:57:27 kiesling Exp $
 
 WriteMakefile(
     'NAME'		=> 'UnixODBC',

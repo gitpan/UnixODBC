@@ -1,8 +1,8 @@
 package UnixODBC::RSS::Ver10;
 
-# $Id: Ver10.pm,v 1.12 2004/04/16 17:07:25 kiesling Exp $
+# $Id: Ver10.pm,v 1.13 2008-01-21 09:16:56 kiesling Exp $
 
-my $VERSION=0.03;
+my $VERSION=0.04;
 
 my %rsstags = ('open' => "<rdf:RDF\n" .
 	       "xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n" .

@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 
-#$Id: tkdm,v 1.20 2005/07/12 01:05:55 kiesling Exp $
+#$Id: tkdm,v 1.23 2008-01-21 08:47:34 kiesling Exp $
 
-$VERSION='0.20';
+$VERSION='0.21';
 @EXPORT_OK=(qw/$VERSION/);
 
 use Tk;
@@ -22,7 +22,7 @@ my $peerport = 9999;
 
 if (! -f $loginsfile) {
     print STDERR "\nCould not open login information file $loginsfile.\n";
-    print STDERR "Refer to the man page \"man tkdm\" for information\n";
+    print STDERR "Refer to tkdm(1) (\"man tkdm\") for information.\n";
     exit 255
 }
 
@@ -489,7 +489,7 @@ my %textsizes;
 sub about {
     my $mw = $_[0];
     my $abouttext = "Tkdm Version $VERSION\n" .
-	"Copyright \xa9 2002-2005 by Robert Kiesling.\n" .
+	"Copyright \xa9 2002-2005, 2008 by Robert Kiesling.\n" .
 	"Licensed using the same license as Perl.  Refer to the file " .
 	"\"Artistic\" for information.\n";
     my $dialog = $mw -> Dialog (-title => 'About Tkdm',
@@ -1947,11 +1947,11 @@ the, "group," and, "other," permissions from the file, with:
 
 =head1 VERSION INFORMATION AND CREDITS
 
-$Id: tkdm,v 1.20 2005/07/12 01:05:55 kiesling Exp $
+$Id: tkdm,v 1.23 2008-01-21 08:47:34 kiesling Exp $
 
 Tkdm is part of the UnixODBC.  
 
-Copyright © 2002-2005 Robert Kiesling, rkies@cpan.org.
+Copyright © 2002-2005, 2008 Robert Kiesling, rkies@cpan.org.
 
 Licensed under the same terms as Perl.  Refer to the file, "Artistic,"
 for details.

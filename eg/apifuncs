@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# $Id: apifuncs,v 1.5 2005/07/12 01:08:39 kiesling Exp $
+# $Id: apifuncs,v 1.5 2005-07-12 01:08:39 kiesling Exp $
 $VERSION = 1.0;
 
 use UnixODBC qw(:all);

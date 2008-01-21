@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# $Id: sqltables,v 1.6 2004/03/06 05:57:56 kiesling Exp $
+# $Id: sqltables,v 1.6 2004-03-06 05:57:56 kiesling Exp $
 $VERSION=1.0;
 
 use UnixODBC qw(:all);

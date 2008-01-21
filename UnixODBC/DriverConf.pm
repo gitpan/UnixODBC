@@ -1,8 +1,8 @@
 package UnixODBC::DriverConf;
 
-# $Id: DriverConf.pm,v 1.17 2005/07/12 01:17:35 kiesling Exp $
+# $Id: DriverConf.pm,v 1.18 2008-01-21 09:16:56 kiesling Exp $
 
-our $VERSION=0.01;
+our $VERSION=0.02;
 
 @ISA = qw(Exporter);
 
@@ -338,12 +338,11 @@ See @EXPORT_OK in UnixODBC::DriverConf.pm.
 
 =head1 VERSION
 
-
-Version 0.01
+Version 0.02
 
 =head1 COPYRIGHT
 
-Copyright © 2004-2005 Robert Kiesling, rkies@cpan.org.
+Copyright © 2004-2005, 2008 Robert Kiesling, rkies@cpan.org.
 
 Licensed under the same terms as Perl.  Refer to the file, "Artistic,"
 for details.

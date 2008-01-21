@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# $Id: client,v 1.1 2003/11/28 22:25:43 kiesling Exp $
+# $Id: client,v 1.1 2003-11-28 22:25:43 kiesling Exp $
 $VERSION=1.0;
 
 use UnixODBC qw(:all);

@@ -1,6 +1,6 @@
 package UnixODBC;
 
-#$Id: UnixODBC.pm,v 1.56 2005/07/12 01:17:54 kiesling Exp $
+#$Id: UnixODBC.pm,v 1.58 2008-01-21 09:16:56 kiesling Exp $
 
 use strict;
 use warnings;
@@ -461,14 +461,13 @@ our @EXPORT_OK = qw($SQL_NULL_DATA $SQL_DATA_AT_EXEC $SQL_HANDLE_ENV
  &SQLForeignKeys &SQLPrimaryKeys &SQLProcedureColumns &SQLProcedures
  &SQLSpecialColumns &SQLStatistics &SQLTables &SQLTablePrivileges
  &SQLSetStmtOption &SQLError
- &dm_log_open &dm_log_close 
 );
 
 # This allows declaration       use UnixODBC ':all';
 our %EXPORT_TAGS = ( 'all' => [@EXPORT_OK] );
 
 our @EXPORT = qw();
-our $VERSION = '0.33';
+our $VERSION = '0.34';
 
 sub AUTOLOAD {
     # This AUTOLOAD is used to 'autoload' constants from the constant()
@@ -3459,7 +3458,7 @@ how to cope with different data types and attribute masks.
 
   #!/usr/bin/perl -w
 
-  # $Id: UnixODBC.pm,v 1.56 2005/07/12 01:17:54 kiesling Exp $
+  # $Id: UnixODBC.pm,v 1.58 2008-01-21 09:16:56 kiesling Exp $
   $VERSION=1.0;
 
   use UnixODBC qw(:all);
@@ -4212,25 +4211,15 @@ command line.
       return $r;
   }
 
-=head2   dm_log_open (I<program_name>, I<logfilename>);
-
-
-Open a log file to record driver manager function calls.
-
-=head2   dm_log_close ();
-
-
-Close a log file opened with dm_log_open();
-
 =head2 EXPORTS
 
 Refer to the @EXPORT_OK array in UnixODBC.pm.
 
 =head1 VERSION INFORMATION AND CREDITS
 
-Version 0.33
+Version 0.34
 
-Copyright © 2002 - 2005 Robert Kiesling, rkies@cpan.org.
+Copyright © 2002 - 2005, 2008 Robert Kiesling, rkies@cpan.org.
 
 Licensed under the same terms as Perl.  Refer to the file, "Artistic,"
 for details.

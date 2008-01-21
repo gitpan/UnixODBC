@@ -12,6 +12,7 @@ UnixODBC.pm Installation
   - Installing the Web data manager
   - Text-mode Programs
   - Troubleshooting
+  - Support and Bug Reports
   - Copyright
 
 
@@ -40,11 +41,11 @@ and the file, "INSTALL," in the tkdm/ subdirectory.
 
   The unixODBC libraries, from http://www.unixodbc.org/, and an 
   ODBC driver for your DBMS server, should be installed and 
-  working  before installing UnixODBC.pm.  UnixODBC.pm has been 
-  tested with unixODBC versions 2.2.0 - 2.2.6.  UnixODBC.pm also 
-  requires the unixODBC C-language include files from unixODBC.  
-  They should have been installed in /usr/local/include when you 
-  install unixODBC.  If the header files aren't there, you can 
+  working before installing UnixODBC.pm.  
+
+  UnixODBC.pm also requires the unixODBC C-language include files 
+  from unixODBC.  They should have been installed in /usr/local/include 
+  when you install unixODBC.  If the header files aren't there, you can 
   find them in the include/ subdirectory of the unixODBC package.
   
   The dbms/README describes DBMS and driver installation for 
@@ -52,21 +53,50 @@ and the file, "INSTALL," in the tkdm/ subdirectory.
   PostgreSQL exception signals that can cause Perl programs to 
   terminate.
 
-  UnixODBC.pm itself requires the following Perl libraries:
+  If you don't yet have either PostgreSQL or MySQL installed, install
+  and configure them first, following the DBMS's instructions, and the 
+  notes in dbms/README.  Then install unixODBC, then any additional
+  driver libraries that the DBMS requires.  The Perl script 
+  dbms/test.pl excercises the libraries and DBMS.  The script should
+  be able pass all of the tests, or print meaningful diagnostic 
+  messages if there are unimplemented features in the driver.
 
-    - Net-Daemon-0.35 - 0.37
-    - PlRPC-0.2015 - 0.2017
-    - Tk800.021 - 0.23
+  UnixODBC.pm has been tested with the following versions of MySQL and
+  Postgresql, and supporting libraries.
 
-  IMPORTANT - Each host must have identical versions of Perl, 
+  UnixODBC.pm   Perl    DBMSs            unixODBC [4]  Other Libraries
+  0.33                  Postgresql-      2.2.0-2.2.6
+                        7.2-7.3                        
+                        MySQL 3.23.x                   MyODBC 3.51.x [3]
+                5.005-                                 Net-Daemon-0.35 - 0.37
+                5.6 [2]                                PlRPC-0.2015 - 0.2017
+                                                       Tk800.021 - 0.23 [1]
+
+  0.34                  MySQL 5.0.51     2.2.10-       MySQL-Connector-ODBC\
+                                         2.2.12        3.51.23r998
+                        PostgreSQL       
+                        7.4.19 -         2.2.10
+                        8.2.6
+			7.4.19 -         2.2.11-       psqlODBC-8.02.0500
+                        8.2.6            2.2.12
+                5.8.8                                  Net-Daemon-0.43
+                                                       PlRPC-0.2020
+                                                       Tk-804.28 [1]
+
+  Notes: 1. You don't need Perl/Tk unless you want to build tkdm.
+         2. Versions of Perl prior to 5.6.0 might not provide 
+            Sys:Syslog.pm and Storable.pm.  In that case you must
+            install these modules also.
+         3. MySQL no longer lists MyODBC on its Web site.  MyODBC
+            is currently packaged with the unixODBC source code.
+         4. Unixodbc.org only lists the most recent library release
+            on its Web site.  The sourceforge.net project page 
+            contains older releases.
+
+  IMPORTANT - Each network host must have identical versions of Perl, 
   Net::Daemon, PlRPC, and the modules they require. 
 
-  Tkdm also requires Perl/Tk. 
-
-  Versions of Perl prior to 5.6.0 might not provide Sys::Syslog.pm 
-  and Storable.pm.  In that case these modules must be installed also.
-
-  To build and install the modules, use the following commands:
+  To build and install UnixODBC, use the following commands:
 
     $ cd UnixODBC-<version>
     $ perl Makefile.PL
@@ -113,8 +143,9 @@ and the file, "INSTALL," in the tkdm/ subdirectory.
   Running test.pl is likely to result in at least a few errors.
   The script is designed to test the subset of ODBC API functions
   that UnixODBC.pm implements as exhaustively as possible, and as
-  many different ODBC DBMS drivers as possible (currently the MyODBC 
-  and Easysoft PostgreSQL drivers).
+  many different ODBC DBMS drivers as possible (currently 
+  Connector/ODBC for MySQL, and libodbcpsql and psqlODBC for 
+  PostgreSQL).
 
 
 - Installing and Configuring the Bridge Server
@@ -125,10 +156,6 @@ and the file, "INSTALL," in the tkdm/ subdirectory.
   and PlRPC generates protocol errors when communicating with different 
   versions. Storable also relies having the same version of itself and 
   Perl on local and remote systems.
-
-  UnixODBC and the supporting libraries are not thread-safe (yet). 
-  You may encounter thread exceptions on some systems with Perl 
-  5.8.0 configured with ithreads.
 
   Net::Daemon errors are commonly recorded in the syslog.
   Although you can configure the log messages, check the syslog
@@ -422,14 +449,19 @@ and the file, "INSTALL," in the tkdm/ subdirectory.
     3. The HTTP server records HTTP and CGI script errors in the 
     server's error_log.
     
+- Support and Bug Reports
+
+  SEND AN E-MAIL MESSAGE to rkies@cpan.org if you need support, or report 
+  (suspected) bugs to the bug tracker at rt.cpan.org.
+
 - Authorship and Copyright
 
   UnixODBC.pm is written by Robert Kiesling, rkies@cpan.org.
 
-  Copyright © 2002-2005 by Robert Kiesling and licensed under
-  the same terms as Perl.  Refer to the file, "Artistic," for
-  details.
+  Copyright © 2002-2005, 2008 by Robert Kiesling and licensed 
+  under the same terms as Perl.  Refer to the file, "Artistic," 
+  for details.
 
-  $Id: README,v 1.22 2005/07/08 12:42:44 kiesling Exp $
+  $Id: README,v 1.26 2008-01-21 09:21:22 kiesling Exp $
 
 

@@ -1,4 +1,4 @@
-# $Id: Makefile.PL,v 1.5 2003/07/20 19:47:01 kiesling Exp $
+# $Id: Makefile.PL,v 1.5 2003-07-20 19:47:01 kiesling Exp $
 
 # This is how ExtUtils::MakeMaker tests for installed packages.
 my $eval = 'require Tk';

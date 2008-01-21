@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# $Id: driverinfo,v 1.6 2003/11/28 22:17:23 kiesling Exp $
+# $Id: driverinfo,v 1.6 2003-11-28 22:17:23 kiesling Exp $
 $VERSION=1.0;
 
 use UnixODBC qw (:all);

@@ -1,4 +1,4 @@
-# $Id: installscripts,v 1.2 2004/03/06 05:11:16 kiesling Exp $
+# $Id: installscripts,v 1.2 2004-03-06 05:11:16 kiesling Exp $
 
 # Replace with the scripts that are to be manified and installed.
 my @apps = qw/alltypes apifuncs colattributes connectinfo
